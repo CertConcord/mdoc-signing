@@ -7,9 +7,9 @@ import { decode, encode, get } from './cbor.mjs';
 import { MdocValidationError } from './errors.mjs';
 
 const vectors = JSON.parse(readFileSync(new URL('../vectors/classification.json', import.meta.url)));
-const certificate = Buffer.from(vectors.certificate, 'hex');
-const issuerKey = new X509Certificate(certificate).publicKey;
 for (const vector of vectors.cases) test('serialized issuer result: ' + vector.id, () => {
+  const certificate = Buffer.from(vector.certificate ?? vectors.certificate, 'hex');
+  const issuerKey = new X509Certificate(certificate).publicKey;
   const credential = Buffer.from(vector.credential, 'hex');
   const auth = get(decode(credential), 'issuerAuth');
   // This independent native check is an ES256 mathematical fact, not acceptance
@@ -34,14 +34,14 @@ for (const vector of vectors.cases) test('serialized issuer result: ' + vector.i
 });
 
 test('critical and MSO capability pairs retain the identical signed message', () => {
-  for (const name of ['unknown-critical', 'version-1-1', 'digest-sha384']) {
+  for (const name of ['unknown-critical', 'unknown-large-integer-critical', 'version-1-1', 'digest-sha384']) {
     const good = vectors.cases.find((entry) => entry.id === name);
     const bad = vectors.cases.find((entry) => entry.id === name + '-bad-math');
     const ga = get(decode(Buffer.from(good.credential, 'hex')), 'issuerAuth');
     const ba = get(decode(Buffer.from(bad.credential, 'hex')), 'issuerAuth');
     assert.deepEqual(ga.slice(0, 3), ba.slice(0, 3));
     assert.notDeepEqual(ga[3], ba[3]);
-    assert.deepEqual(good.expected, { overall: 'UNSUPPORTED', reason: name === 'unknown-critical'
+    assert.deepEqual(good.expected, { overall: 'UNSUPPORTED', reason: name.includes('critical')
       ? 'COSE_CRITICAL_UNSUPPORTED' : name === 'version-1-1' ? 'MDOC_VERSION_UNSUPPORTED' : 'MDOC_DIGEST_UNSUPPORTED' });
     assert.deepEqual(bad.expected, { overall: 'INVALID', reason: 'COSE_SIGNATURE' });
   }
