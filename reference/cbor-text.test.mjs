@@ -45,6 +45,7 @@ test('CBOR text retains byte and item budgets', () => {
   const input = raw('64efbbbf41');
   assert.equal(decode(input, { maxBytes: 5, maxItems: 1 }), '\ufeffA');
   assert.throws(() => decode(input, { maxBytes: 4 }), { code: 'CBOR_SIZE' });
+  assert.throws(() => decode(input, { maxItems: 0 }), { code: 'CBOR_LIMIT' });
   assert.deepEqual(decode(raw(vectors.nested.hex), { maxItems: 5 }), vectors.nested.value);
   assert.throws(() => decode(raw(vectors.nested.hex), { maxItems: 4 }), { code: 'CBOR_ITEM_BUDGET' });
 });
