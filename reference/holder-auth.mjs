@@ -50,8 +50,9 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   requireThat(deviceNameSpaces instanceof Map && same(nameSpaces.value, encode(deviceNameSpaces)), 'MDOC_DEVICE_NAMESPACES');
   requireThat(deviceNameSpaces.size === 0, 'MDOC_DEVICE_NAMESPACES_UNSUPPORTED', 'UNSUPPORTED');
   requireThat(auth instanceof Map, 'MDOC_HOLDER_AUTH');
+  requireThat(auth.size === 1, 'MDOC_HOLDER_AUTH');
   requireThat(!auth.has('deviceMac'), 'MDOC_HOLDER_MAC_UNSUPPORTED', 'UNSUPPORTED');
-  requireThat(auth.size === 1 && auth.has('deviceSignature'), 'MDOC_HOLDER_AUTH');
+  requireThat(auth.has('deviceSignature'), 'MDOC_HOLDER_AUTH');
   const cose = auth.get('deviceSignature');
   requireThat(Array.isArray(cose) && cose.length === 4 && Buffer.isBuffer(cose[0]) && cose[1] instanceof Map && cose[1].size === 0 && cose[2] === null && Buffer.isBuffer(cose[3]), 'MDOC_HOLDER_COSE');
   const headers = decode(cose[0]);

@@ -39,6 +39,7 @@ try {
   add('wrong-holder-key', { credential: hex(otherCredential) }, 'INVALID', 'MDOC_HOLDER_SIGNATURE');
   add('changed-holder-signature', { deviceSigned: change(value => { value.get('deviceAuth').get('deviceSignature')[3][0] ^= 1; }) }, 'INVALID', 'MDOC_HOLDER_SIGNATURE');
   add('device-mac-is-not-signature', { deviceSigned: change(value => { const auth = value.get('deviceAuth'); auth.set('deviceMac', auth.get('deviceSignature')); auth.delete('deviceSignature'); }) }, 'UNSUPPORTED', 'MDOC_HOLDER_MAC_UNSUPPORTED');
+  add('device-mac-and-signature', { deviceSigned: change(value => { const auth = value.get('deviceAuth'); auth.set('deviceMac', auth.get('deviceSignature')); }) }, 'INVALID', 'MDOC_HOLDER_AUTH');
   add('embedded-holder-payload', { deviceSigned: change(value => { value.get('deviceAuth').get('deviceSignature')[2] = Buffer.alloc(0); }) }, 'INVALID', 'MDOC_HOLDER_COSE');
   add('nonempty-device-namespaces', { deviceSigned: change(value => { value.set('nameSpaces', embedded(new Map([['org.example', new Map([['x', true]])]]))); }) }, 'UNSUPPORTED', 'MDOC_DEVICE_NAMESPACES_UNSUPPORTED');
   add('changed-issuer-auth', { credential: (() => { const value = decode(credential); value.get('issuerAuth')[3][0] ^= 1; return hex(encode(value)); })() }, 'INVALID', 'COSE_SIGNATURE');
