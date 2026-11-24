@@ -16,11 +16,13 @@ Organizational seals, encryption and legal qualification are outside this person
 
 The published background edition is **ISO/IEC 18013-5:2021, edition 1, September 2021**. The ISO catalog identifies it as published and separately lists a DIS successor under development. The full licensed 2021 text has not been checked in this work. Public metadata and Multipaz code do not establish ISO conformance; production implementers need the normative text and relevant certificate-profile assessment.
 
-The separately tracked public WG10 text is the September 14, 2025 CD-ballot-resolution document at commit `b250e7a64f99e22ceed10d2a5799bed38ee89f85`, blob `70af94f67df47e6d35ac5b055201892688c1c11a`. Its cover places it before a DIS ballot. It is neither the published 2021 edition nor evidence of the latest DIS text. Its certificate-binding and revocation sections were reviewed; hashes are in `sources.json`. The copyright-protected PDF is referenced, not redistributed.
+The separately tracked public WG10 text is the September 14, 2025 CD-ballot-resolution document at commit `b250e7a64f99e22ceed10d2a5799bed38ee89f85`, blob `70af94f67df47e6d35ac5b055201892688c1c11a`. Its cover places it before a DIS ballot. It is neither the published 2021 edition nor evidence of the latest DIS text. Its certificate binding, revocation, DeviceSigned and device authentication sections were reviewed; hashes are in `sources.json`. The copyright-protected PDF is referenced, not redistributed. [The source check](reference/standards-research-2026-11-24.md) records exact clauses and maturity boundaries.
 
 That working text's sections 12.3.4 and 12.3.6 discuss protected certificate thumbprints and optional MSO revocation using identifier-list or status-list mechanisms, with COSE/CWT revocation lists and a reference to Token Status List draft 12. This component instead selects the application namespace/JWT binding in section 5 against Token Status List draft 21. Location, token representation and delegated status-authority rules differ. No automatic conversion, dual runtime or second-edition conformity is claimed.
 
 Certificate binding uses existing RFC 9360 `x5t`, avoiding a new certificate-digest extension. It is an explicit application requirement here even where the working text recommends it. Document-to-credential binding separately commits to the complete original credential, not just its issuer certificate.
+
+Informative Annex D.7.2 of the public WG10 text illustrates returning a document hash as a DeviceSigned element in a request/response. That is a session-bound device authentication example; it does not define this profile's separately certified document key, `DOCUMENT_SIGN` grant or standalone detached document signature. No clause-level claim about the unreviewed published 2021 text is inferred from that example.
 
 ## 3. Credential and issuer authentication
 
@@ -85,7 +87,15 @@ The status reference is an issuer-authenticated namespace item, not ISO MSO `sta
 
 Freshness uses knowledge time, not a backdated clock. A status bit alone does not identify historical revocation-effective time or prove coverage after issuer retirement; absent historical coverage requires `UNKNOWN`. CRL/OCSP or other authenticated authority history can inform the authorization resolver without changing this credential's status wire binding.
 
-## 6. Detached document signatures
+## 6. Holder authentication
+
+Issuer authentication alone does not prove control of the MSO device key. The bounded holder primitive accepts a complete original `IssuerSigned` credential and an exact externally selected CBOR `SessionTranscript`. It verifies the issuer signature and internal/time checks at an explicit `at`, then verifies a distinct `DeviceSigned.deviceAuth.deviceSignature` with the P-256 key in `deviceKeyInfo`. Its result contains mathematical issuer facts and the holder proof, with no `overall` admission verdict. Applications still decide issuer trust, credential status, session challenge/freshness and presentation policy. A credential's identity source supplies none of those document-signing CA decisions automatically.
+
+The selected `DeviceSigned` has exactly `nameSpaces` and `deviceAuth`. `nameSpaces` is tag-24 `DeviceNameSpacesBytes` containing an **empty** CBOR map, which the public WG10 §10.3.3 permits. A nonempty map is an unselected presentation capability (`UNSUPPORTED`), not a claim that mdoc forbids device namespace data. `deviceAuth` contains only `deviceSignature`; DeviceMAC is a different unselected method. The untagged COSE_Sign1 has protected ES256 `alg=-7`, empty unprotected headers, null payload and a 64-byte `r || s` signature. Extra protected headers and embedded payloads fail this base contract.
+
+The exact detached payload is `DeviceAuthenticationBytes = #6.24(bstr .cbor ["DeviceAuthentication", SessionTranscript, DocType, DeviceNameSpacesBytes])`, using the original selected transcript and the issuer-authenticated document type. Its COSE `Signature1` uses exact protected bytes, empty external AAD and that tagged payload. `prepareHolderAuthentication` returns the bytes to sign and verifies the returned signature before emitting `DeviceSigned`; `verifyHolderAuthentication` checks the original credential, selected transcript, document type and signature. The bounded reference requires a canonical three-element transcript with a non-null handover; the caller must bind a real session and prevent replay. A holder proof is not a signature on arbitrary document bytes.
+
+## 7. Detached document signatures
 
 The untagged COSE_Sign1 has an empty unprotected map and null payload. Standard `Signature1` uses exact protected bytes, empty external AAD and original detached document bytes. A DeviceMAC or presentation transcript is not this signature.
 
@@ -97,13 +107,13 @@ Missing, null, Boolean or otherwise non-integer/non-text `alg` values are `INVAL
 
 `prepareDocumentSignature` returns the exact `tbs`; `finish` verifies native wire signature bytes before encoding. DER ECDSA providers convert explicitly at their boundary. `verifyDocumentSignature` is only a cryptographic primitive. `verifySignedDocument` validates the complete credential/authorization/status before using its certified key. All signed bytes and required headers are snapshotted before external callbacks.
 
-## 7. Application extensions and maturity
+## 8. Application extensions and maturity
 
 Qualification, RA decisions, device admission, operation permits, PQ issuer seals and transparency are independent application requirements. Base success does not establish them. A PQ seal covers only its statement and cannot make ES256 holder/document proofs post-quantum. Combined identity/signing credentials need original issuer authentication of both claim sets and explicit document-type permission.
 
 Historical evaluation retains original bytes, policy and authenticated status/authority evidence. Retirement, late incidents, algorithm deadlines and archive renewal remain external lifecycle decisions; base tests do not close that entire service.
 
-`cbor.mjs`, `key-relation.mjs` and `base.mjs` have no framework imports. `vectors/base.json` contains complete credentials, certificates, document signatures, documents and signed JWT status fixtures with expected decisions. Negative cases include validly re-signed semantic violations. `vectors/manifest.json` records SHA-256 hashes. Tests use an independently configured synthetic issuer policy and status adapter.
+`cbor.mjs`, `key-relation.mjs`, `base.mjs` and `holder-auth.mjs` have no framework imports. `vectors/base.json` contains complete credentials, certificates, document signatures, documents and signed JWT status fixtures with expected decisions. `vectors/holder-auth.json` contains a complete synthetic holder credential, detached DeviceSigned proof and rejection cases, including a mathematically valid extra-header signature. A document COSE does not parse as DeviceSigned, and a DeviceSigned proof does not parse as this profile's detached document COSE. Negative cases include validly re-signed semantic violations. `vectors/manifest.json` records SHA-256 hashes. Tests use an independently configured synthetic issuer policy and status adapter.
 
 `vectors/classification.json` additionally contains complete original issuer credentials and public certificate inputs for typed capability/structure results. ES256-good/bad pairs retain identical protected and payload bytes. An independent native mathematical check precedes each expected component result. A noncanonical protected-map order demonstrates that validation uses received bytes rather than a rebuilt header map. These vectors preserve the existing wire profile and public API.
 

@@ -1,5 +1,5 @@
 {
-  "reviewDate": "2026-10-07",
+  "reviewDate": "2026-11-24",
   "sources": [
     {
       "id": "rfc9052",
@@ -56,7 +56,7 @@
   ],
   "reviewScope": [
     "ISO catalog metadata",
-    "public WG10 certificate binding and revocation sections",
+    "public WG10 certificate binding, revocation, DeviceSigned and device authentication sections",
     "RFC 9360 x5t",
     "status-list-21 selected JWT binding"
   ],
