@@ -1,6 +1,7 @@
 import { verify } from 'node:crypto';
 import { Tag, decode, embedded, encode, get } from './cbor.mjs';
-import { BASE_PROFILE, SIGNING_DOCTYPE, SIGNING_NAMESPACE, verifyIssuerSigned } from './base.mjs';
+import { BASE_PROFILE, SIGNING_DOCTYPE, SIGNING_NAMESPACE, isLegacyClassicalProfile,
+  verifyIssuerSigned } from './base.mjs';
 import { requireThat } from './errors.mjs';
 
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
@@ -30,10 +31,13 @@ function signatureInput(sessionTranscript, docType, nameSpaces, receivedProtecte
 // This selected proof carries no device namespace claims. The caller supplies the
 // exact session transcript and is responsible for its challenge and freshness.
 export function prepareHolderAuthentication(sessionTranscript, { holderPublicKey, docType = SIGNING_DOCTYPE,
-  allowLegacyClassical = false } = {}) {
+  profileID = BASE_PROFILE, allowLegacyClassical = false } = {}) {
   const algorithm = holderAlgorithm(holderPublicKey);
   requireThat(algorithm, 'MDOC_HOLDER_KEY');
-  requireThat(algorithm === -49 || allowLegacyClassical, 'MDOC_HOLDER_PQC_REQUIRED');
+  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical && isLegacyClassicalProfile(profileID)),
+    'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
+  requireThat(profileID === BASE_PROFILE ? algorithm === -49 : algorithm === -7,
+    profileID === BASE_PROFILE ? 'MDOC_HOLDER_PQC_REQUIRED' : 'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const nameSpaces = emptyNameSpaces(), headers = protectedBytes(algorithm);
   const tbs = signatureInput(sessionTranscript, docType, nameSpaces, headers);
   return { tbs: Buffer.from(tbs), finish(signature) {
@@ -47,13 +51,21 @@ export function prepareHolderAuthentication(sessionTranscript, { holderPublicKey
 // Holder control at one session transcript is separate from issuer authorization,
 // credential status and the document-signing key's detached COSE signature.
 export function verifyHolderAuthentication(deviceSigned, credential, {
-  issuerKey, certificate, at, sessionTranscript, docType = SIGNING_DOCTYPE, allowLegacyClassical = false,
+  issuerKey, certificate, at, sessionTranscript, docType = SIGNING_DOCTYPE,
+  profileID = BASE_PROFILE, allowLegacyClassical = false,
 } = {}) {
   requireThat(Buffer.isBuffer(deviceSigned) && Buffer.isBuffer(credential), 'MDOC_HOLDER_BYTES');
   const facts = verifyIssuerSigned(Buffer.from(credential), { issuerKey, certificate, at, docType });
-  if (!allowLegacyClassical) requireThat(issuerKey?.asymmetricKeyType === 'ml-dsa-65' &&
-    facts.holderPublicKey.asymmetricKeyType === 'ml-dsa-65' &&
-    facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === BASE_PROFILE, 'MDOC_HOLDER_PQC_REQUIRED');
+  requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
+  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical && isLegacyClassicalProfile(profileID)),
+    'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
+  if (profileID === BASE_PROFILE) requireThat(issuerKey?.asymmetricKeyType === 'ml-dsa-65' &&
+    facts.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_HOLDER_PQC_REQUIRED');
+  else requireThat(issuerKey?.asymmetricKeyType === 'ec' &&
+    issuerKey.asymmetricKeyDetails.namedCurve === 'prime256v1' &&
+    facts.holderPublicKey.asymmetricKeyType === 'ec' &&
+    facts.holderPublicKey.asymmetricKeyDetails.namedCurve === 'prime256v1',
+    'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const value = decode(Buffer.from(deviceSigned));
   requireThat(value instanceof Map && value.size === 2 && value.has('nameSpaces') && value.has('deviceAuth'), 'MDOC_DEVICE_SIGNED');
   const nameSpaces = get(value, 'nameSpaces'), auth = get(value, 'deviceAuth');

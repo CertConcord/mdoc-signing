@@ -638,10 +638,13 @@
       "scope": "Cryptographic facts only; no temporal admission or authority verdict."
     },
     { "id": "holder-device-signature", "overall": "VALID", "vector": "vectors/holder-auth.json", "scope": "Session holder proof only; no issuer admission or document-signing verdict." },
+    { "id": "holder-device-signature-with-legacy-enabled", "overall": "VALID", "vector": "vectors/holder-auth.json", "scope": "v3 keeps ML-DSA when historical v2 support is enabled." },
     { "id": "changed-session-transcript", "overall": "INVALID", "reason": "MDOC_HOLDER_SIGNATURE", "vector": "vectors/holder-auth.json" },
     { "id": "wrong-holder-key", "overall": "INVALID", "reason": "MDOC_HOLDER_SIGNATURE", "vector": "vectors/holder-auth.json" },
     { "id": "changed-holder-signature", "overall": "INVALID", "reason": "MDOC_HOLDER_SIGNATURE", "vector": "vectors/holder-auth.json" },
     { "id": "classic-holder-alg-downgrade", "overall": "INVALID", "reason": "MDOC_HOLDER_ALGORITHM", "vector": "vectors/holder-auth.json" },
+    { "id": "validly-signed-classic-holder-v3-with-legacy-enabled", "overall": "INVALID", "reason": "MDOC_HOLDER_PQC_REQUIRED", "vector": "vectors/holder-auth.json" },
+    { "id": "v3-credential-selected-as-legacy", "overall": "INVALID", "reason": "MDOC_HOLDER_PROFILE", "vector": "vectors/holder-auth.json" },
     { "id": "device-mac-is-not-signature", "overall": "UNSUPPORTED", "reason": "MDOC_HOLDER_MAC_UNSUPPORTED", "vector": "vectors/holder-auth.json" },
     { "id": "device-mac-and-signature", "overall": "INVALID", "reason": "MDOC_HOLDER_AUTH", "vector": "vectors/holder-auth.json" },
     { "id": "embedded-holder-payload", "overall": "INVALID", "reason": "MDOC_HOLDER_COSE", "vector": "vectors/holder-auth.json" },

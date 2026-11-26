@@ -8,6 +8,7 @@ export const SIGNING_NAMESPACE = SIGNING_DOCTYPE;
 export const BASE_PROFILE = 'MDOC-SIGNING-PERSON-PQ-v3';
 const legacyProfiles = new Set(['MDOC-SIGNING-PERSON-PQ-v2', 'MDOC-SIGNING-PERSON-DEVICE-v2',
   'MDOC-SIGNING-PERSON-ASSOCIATED-v2']);
+export const isLegacyClassicalProfile = profileID => legacyProfiles.has(profileID);
 export const CREDENTIAL_HEADER = 'urn:certconcord:credential:1';
 const hash = (algorithm, bytes) => createHash(algorithm).update(bytes).digest();
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
@@ -198,9 +199,11 @@ export function verifySigningCredential(credential, {
   for (const name of ['subject_id', 'credential_id']) requireThat(Buffer.isBuffer(claims.get(name)) && claims.get(name).length === 32, 'MDOC_IDENTIFIER');
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
-  requireThat(pqProfile || (allowLegacyClassical && legacyProfiles.has(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
+  requireThat(pqProfile || (allowLegacyClassical && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
   if (pqProfile) requireThat(issuerAlgorithm(issuerKey) === -49 &&
     validated.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_PQC_AUTHENTICATION_REQUIRED');
+  else requireThat(issuerAlgorithm(issuerKey) === -7 && p256(validated.holderPublicKey),
+    'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const pqPath = pqProfile ? verifyPqcCertificatePath(validated.certificateChain, trustAnchorCertificate, stateTime) : undefined;
   requireThat(Array.isArray(claims.get('allowed_purposes')) && claims.get('allowed_purposes').length === 1 && claims.get('allowed_purposes')[0] === 'DOCUMENT_SIGN', 'MDOC_PURPOSE');
   requireThat(['INDEPENDENT_PQ', 'DEVICE_KEY', 'PASSKEY_KEY'].includes(documentKeyMode) && claims.get('document_key_mode') === documentKeyMode, 'MDOC_KEY_MODE');

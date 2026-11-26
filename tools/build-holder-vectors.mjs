@@ -10,6 +10,7 @@ import { syntheticPqcCertificate } from './pqc-certificate.mjs';
 const hex = value => Buffer.from(value).toString('hex');
 const issuer = generateKeyPairSync('ml-dsa-65'), holder = generateKeyPairSync('ml-dsa-65');
 const otherHolder = generateKeyPairSync('ml-dsa-65'), documentKey = generateKeyPairSync('ml-dsa-65');
+const classicHolder = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
 const at = Math.floor(Date.now() / 1000);
 const certificate = syntheticPqcCertificate({ subjectKey: issuer.publicKey, signerKey: issuer.privateKey,
   subject: 'Synthetic PQ holder issuer', issuer: 'Synthetic PQ holder issuer', serial: 1, at, ca: false });
@@ -30,10 +31,22 @@ const documentSPKI = documentKey.publicKey.export({ format: 'der', type: 'spki' 
   const add = (id, patch, overall, reason) => cases.push({ id, ...patch, expected: { overall, ...(reason ? { reason } : {}) } });
   const change = mutate => { const value = decode(deviceSigned); mutate(value); return hex(encode(value)); };
   add('holder-device-signature', {}, 'VALID');
+  add('holder-device-signature-with-legacy-enabled', { allowLegacyClassical: true }, 'VALID');
   add('changed-session-transcript', { sessionTranscript: hex(encode([null, null, Buffer.alloc(32, 8)])) }, 'INVALID', 'MDOC_HOLDER_SIGNATURE');
   add('wrong-holder-key', { credential: hex(otherCredential) }, 'INVALID', 'MDOC_HOLDER_SIGNATURE');
   add('changed-holder-signature', { deviceSigned: change(value => { value.get('deviceAuth').get('deviceSignature')[3][0] ^= 1; }) }, 'INVALID', 'MDOC_HOLDER_SIGNATURE');
   add('classic-holder-alg-downgrade', { deviceSigned: change(value => { value.get('deviceAuth').get('deviceSignature')[0] = encode(new Map([[1, -7]])); }) }, 'INVALID', 'MDOC_HOLDER_ALGORITHM');
+  const classicCredential = mint(classicHolder), classicNameSpaces = embedded(new Map());
+  const classicProtected = encode(new Map([[1, -7]]));
+  const classicPayload = encode(embedded(['DeviceAuthentication', decode(sessionTranscript), SIGNING_DOCTYPE, classicNameSpaces]));
+  const classicSignature = sign('sha256', encode(['Signature1', classicProtected, Buffer.alloc(0), classicPayload]),
+    { key: classicHolder.privateKey, dsaEncoding: 'ieee-p1363' });
+  const classicDeviceSigned = encode({ nameSpaces: classicNameSpaces,
+    deviceAuth: { deviceSignature: [classicProtected, new Map(), null, classicSignature] } });
+  add('validly-signed-classic-holder-v3-with-legacy-enabled', { credential: hex(classicCredential),
+    deviceSigned: hex(classicDeviceSigned), allowLegacyClassical: true }, 'INVALID', 'MDOC_HOLDER_PQC_REQUIRED');
+  add('v3-credential-selected-as-legacy', { profileID: 'MDOC-SIGNING-PERSON-PQ-v2',
+    allowLegacyClassical: true }, 'INVALID', 'MDOC_HOLDER_PROFILE');
   add('device-mac-is-not-signature', { deviceSigned: change(value => { const auth = value.get('deviceAuth'); auth.set('deviceMac', auth.get('deviceSignature')); auth.delete('deviceSignature'); }) }, 'UNSUPPORTED', 'MDOC_HOLDER_MAC_UNSUPPORTED');
   add('device-mac-and-signature', { deviceSigned: change(value => { const auth = value.get('deviceAuth'); auth.set('deviceMac', auth.get('deviceSignature')); }) }, 'INVALID', 'MDOC_HOLDER_AUTH');
   add('embedded-holder-payload', { deviceSigned: change(value => { value.get('deviceAuth').get('deviceSignature')[2] = Buffer.alloc(0); }) }, 'INVALID', 'MDOC_HOLDER_COSE');
