@@ -683,6 +683,10 @@
     { "id": "pqc-status-binding-wrong-iss", "overall": "INVALID", "reason": "MDOC_STATUS_INVALID", "vector": "vectors/pqc-status-binding.json", "scope": "Valid ML-DSA-65 status signature with an issuer URI rejected by this profile." },
     { "id": "pqc-status-binding-other-pq-signer", "overall": "INVALID", "reason": "MDOC_STATUS_INVALID", "vector": "vectors/pqc-status-binding.json", "scope": "Valid alternate ML-DSA-65 signature from a signer outside the selected issuer policy." },
     { "id": "pqc-status-binding-ttl-stale-before-exp", "overall": "INDETERMINATE", "reason": "MDOC_STATUS_STALE", "vector": "vectors/pqc-status-binding.json", "scope": "Valid ML-DSA-65 token past the profile ttl gate while exp remains live." },
-    { "id": "pqc-status-binding-bad-signature", "overall": "INVALID", "reason": "MDOC_STATUS_INVALID", "vector": "vectors/pqc-status-binding.json" }
+    { "id": "pqc-status-binding-bad-signature", "overall": "INVALID", "reason": "MDOC_STATUS_INVALID", "vector": "vectors/pqc-status-binding.json" },
+    { "id": "pqc-issuer-canonical-protected", "overall": "VALID", "vector": "vectors/pqc-issuer-headers.json", "scope": "Low-level ML-DSA-65 issuer mathematics; no authority verdict." },
+    { "id": "pqc-issuer-reordered-protected-signed", "overall": "VALID", "vector": "vectors/pqc-issuer-headers.json", "scope": "Same protected parameters and payload with a separately valid signature over received reversed-order bytes." },
+    { "id": "pqc-issuer-reordered-protected-old-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-issuer-headers.json", "scope": "Reordered protected bytes with the canonical signature are mathematically invalid." },
+    { "id": "pqc-issuer-canonical-protected-reordered-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-issuer-headers.json", "scope": "Canonical protected bytes with the reversed-order signature are mathematically invalid." }
   ]
 }
