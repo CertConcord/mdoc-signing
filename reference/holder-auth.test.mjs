@@ -17,7 +17,7 @@ for (const entry of vectors.cases) test('serialized holder proof: ' + entry.id, 
   try {
     const actual = verifyHolderAuthentication(bytes(value.deviceSigned), bytes(value.credential), options);
     assert.equal(actual.issuerFacts.overall, undefined);
-    assert.equal(actual.holderProof.signature.length, 64);
+    assert.equal(actual.holderProof.signature.length, 3309);
     result = { overall: 'VALID' };
   } catch (error) { result = { overall: error.overall ?? 'INVALID', reason: error.code }; }
   assert.deepEqual(result, entry.expected);
@@ -32,7 +32,7 @@ test('valid holder proof signs the exact tagged DeviceAuthenticationBytes', () =
   const expectedTbs = encode(['Signature1', cose[0], Buffer.alloc(0), payload]);
   const proof = verifyHolderAuthentication(bytes(value.deviceSigned), bytes(value.credential), { issuerKey, certificate, at: value.at, sessionTranscript: bytes(value.sessionTranscript) });
   assert.deepEqual(proof.holderProof.tbs, expectedTbs);
-  assert(verify('sha256', proof.holderProof.tbs, { key: facts.holderPublicKey, dsaEncoding: 'ieee-p1363' }, cose[3]));
+  assert(verify(null, proof.holderProof.tbs, facts.holderPublicKey, cose[3]));
   assert.equal(cose[2], null);
   assert.equal(cose[1].size, 0);
   assert.throws(() => verifyDocumentSignature(bytes(value.deviceSigned), Buffer.from('document'), { credential: bytes(value.credential), publicKey: facts.holderPublicKey }), { code: 'MDOC_DOCUMENT_COSE' });
@@ -43,5 +43,5 @@ test('holder preparation refuses a malformed transcript and wrong signature', ()
   const facts = inspectIssuerSigned(bytes(vectors.base.credential), { issuerKey, certificate });
   assert.throws(() => prepareHolderAuthentication(Buffer.from('82f6f6', 'hex'), { holderPublicKey: facts.holderPublicKey }), { code: 'MDOC_SESSION_TRANSCRIPT' });
   const prepared = prepareHolderAuthentication(bytes(vectors.base.sessionTranscript), { holderPublicKey: facts.holderPublicKey });
-  assert.throws(() => prepared.finish(Buffer.alloc(64)), { code: 'MDOC_HOLDER_SIGNATURE' });
+  assert.throws(() => prepared.finish(Buffer.alloc(3309)), { code: 'MDOC_HOLDER_SIGNATURE' });
 });
