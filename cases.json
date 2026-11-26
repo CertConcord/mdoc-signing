@@ -654,6 +654,8 @@
     { "id": "validly-signed-extra-protected-header", "overall": "INVALID", "reason": "MDOC_HOLDER_HEADERS", "vector": "vectors/holder-auth.json" },
     { "id": "document-signature-is-not-holder-proof", "overall": "INVALID", "reason": "MDOC_DEVICE_SIGNED", "vector": "vectors/holder-auth.json" },
     { "id": "pqc-complete-ml-dsa-65", "overall": "VALID", "vector": "vectors/pqc-base.json" },
+    { "id": "pqc-distinct-subject-credential-ids", "overall": "VALID", "vector": "vectors/pqc-identifiers.json", "scope": "Signed PQ credential, detached document and admitted synthetic status with distinct identifiers." },
+    { "id": "pqc-reject-reused-subject-credential-id", "overall": "INVALID", "reason": "MDOC_IDENTIFIER_REUSED", "vector": "vectors/pqc-identifiers.json", "scope": "Valid issuer, status and detached document mathematics cannot turn a reused subject identifier into a per-credential identifier." },
     { "id": "pqc-complete-ml-dsa-87-document", "overall": "VALID", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-invalid-issuer-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-reject-classic-issuer-alg", "overall": "INVALID", "reason": "MDOC_ISSUER_ALGORITHM_MISMATCH", "vector": "vectors/pqc-base.json" },

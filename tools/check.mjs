@@ -16,6 +16,7 @@ const ids=new Set(json('cases.json').cases.map(value=>value.id));
 for(const vector of json('vectors/base.json').cases) assert(ids.has(vector.id),vector.id);
 for(const vector of json('vectors/holder-auth.json').cases) assert(ids.has(vector.id),vector.id);
 for(const vector of json('vectors/pqc-base.json').cases) assert(ids.has(vector.id),vector.id);
+for(const vector of json('vectors/pqc-identifiers.json').cases) assert(ids.has(vector.id),vector.id);
 for(const vector of json('vectors/pqc-document-headers.json').cases) assert(ids.has(vector.id),vector.id);
 for(const vector of json('vectors/pqc-status-binding.json').cases) assert(ids.has(vector.id),vector.id);
 for(const entry of readdirSync(join(root,'reference')).filter(name=>name.endsWith('.mjs'))) {

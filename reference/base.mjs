@@ -197,6 +197,7 @@ export function verifySigningCredential(credential, {
   const claims = validated.claims.get(namespace);
   requireThat(claims instanceof Map, 'MDOC_SIGNING_NAMESPACE');
   for (const name of ['subject_id', 'credential_id']) requireThat(Buffer.isBuffer(claims.get(name)) && claims.get(name).length === 32, 'MDOC_IDENTIFIER');
+  requireThat(!same(claims.get('subject_id'), claims.get('credential_id')), 'MDOC_IDENTIFIER_REUSED');
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
   requireThat(pqProfile || (allowLegacyClassical && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');

@@ -73,6 +73,8 @@ The signing namespace includes the following. Additional application claims conf
 | `profile_id` | Exact externally selected profile ID. |
 | `status` | Exactly `{ "status_list": { "uri": tstr, "idx": uint } }`. |
 
+The subject and credential identifiers must differ. This catches direct identifier reuse but does not prove either identifier was generated randomly or independently; issuance policy remains responsible for that requirement.
+
 V3 requires `INDEPENDENT_PQ` and a canonical ML-DSA-65/87 SPKI distinct from both the holder and issuer keys. Historical `DEVICE_KEY` and `PASSKEY_KEY` modes require explicit legacy selection and remain classical; neither is a v3 fallback. Compare canonical SPKI. Mode declarations cannot override these checks.
 
 Key separation alone does not establish association, hardware or device support. Device-key equality does not turn a presentation-only API into document signing. Issuers verify possession and authority before certification; replacing keys requires new issuer-authenticated material.
@@ -130,6 +132,8 @@ The five appended key-mismatch cases change only the protected algorithm identif
 `vectors/pqc-document-headers.json` adds serialized ML-DSA-65 document-primitive signatures for two application critical headers. Its accepted signature has the credential binding first and extension labels in canonical encoded-key order even when the caller supplies a reversed map. Separately signed variants with reversed critical labels or a changed required value are mathematically valid but fail the exact protected-header contract; a paired corrupt signature with the same reversed labels fails mathematics first. The opaque credential bytes in this corpus grant no issuer admission, holder authentication or document-signing permission.
 
 `vectors/pqc-status-binding.json` retains serialized status-JWT cases over one complete ML-DSA-65 credential, PQ issuer path and independently keyed detached document signature. A positive case, wrong signed `sub` and `iss`, an alternate ML-DSA-65 signer, `ttl` staleness before `exp`, and a damaged signature isolate status binding after the credential and document mathematics succeed. The same valid token also rejects omitted knowledge time and becomes stale when a later knowledge time is explicitly selected against an earlier valid state time. The issuer policy and status resolver remain explicit application inputs; these synthetic fixtures do not admit a real CA.
+
+`vectors/pqc-identifiers.json` pairs two independently signed PQ credentials with valid detached document mathematics and one signed status token. The first uses distinct subject and credential identifiers; the second reuses the subject identifier as the credential identifier and fails `MDOC_IDENTIFIER_REUSED`. This rejection checks an observable violation and does not establish randomness of otherwise distinct values.
 
 `vectors/issuer-facts.json` contains original issuer credentials with an explicit public certificate. Validly signed internal lifetime violations fail both inspection and full verification. The ordinary credential can be inspected without an external time, while full verification rejects times before or at the end of its certificate or MSO window. Existing malformed, unsupported and bad-mathematics vectors also exercise the inspection API without conferring admission.
 
