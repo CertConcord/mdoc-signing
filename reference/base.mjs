@@ -197,6 +197,7 @@ export function verifySigningCredential(credential, {
   const claims = validated.claims.get(namespace);
   requireThat(claims instanceof Map, 'MDOC_SIGNING_NAMESPACE');
   for (const name of ['subject_id', 'credential_id']) requireThat(Buffer.isBuffer(claims.get(name)) && claims.get(name).length === 32, 'MDOC_IDENTIFIER');
+  requireThat(!same(claims.get('subject_id'), claims.get('credential_id')), 'MDOC_IDENTIFIER_REUSED');
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
   requireThat(pqProfile || (allowLegacyClassical && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
@@ -216,7 +217,13 @@ export function verifySigningCredential(credential, {
   requireThat(same(spki(publicKey), keyBytes) && same(claims.get('signing_key_id'), hash('sha512', keyBytes)), 'MDOC_DOCUMENT_KEY_ID');
   documentKeyRelation(documentKeyMode, keyBytes, spki(validated.holderPublicKey));
   if (pqProfile) requireThat(['ml-dsa-65', 'ml-dsa-87'].includes(publicKey.asymmetricKeyType), 'MDOC_PQC_DOCUMENT_KEY_REQUIRED');
-  requireThat(!same(keyBytes, spki(issuerKey)), 'MDOC_KEY_ROLE_COLLISION');
+  const issuerPathCertificates = pqPath ? [pqPath.trustAnchorCertificate, ...pqPath.path] :
+    [validated.certificateBytes];
+  const issuerPathKeys = issuerPathCertificates.map(value => spki(certificateDetails(value).publicKey));
+  const holderKeyBytes = spki(validated.holderPublicKey);
+  requireThat(issuerPathKeys.every(value =>
+    !same(keyBytes, value) && (!pqProfile || !same(holderKeyBytes, value))),
+  'MDOC_KEY_ROLE_COLLISION');
   const status = claims.get('status');
   fields(status, ['status_list']);
   const reference = status.get('status_list');
@@ -228,7 +235,8 @@ export function verifySigningCredential(credential, {
     statusAlgorithm: pqProfile ? 'ML-DSA-65' : 'ES256', stateTime, knowledgeTime };
   const authorization = externalDecision(authorizeIssuer, { ...common, certificate: Buffer.from(validated.certificateBytes),
     certificateChain: validated.certificateChain.map(value => Buffer.from(value)),
-    trustAnchorCertificate: pqPath?.trustAnchorCertificate, credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
+    trustAnchorCertificate: pqPath && Buffer.from(pqPath.trustAnchorCertificate),
+    credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
   requireThat(authorization.overall === 'VALID', 'MDOC_ISSUER_AUTHORIZATION', authorization.overall);
   const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: Buffer.from(claims.get('credential_id')), certificate: Buffer.from(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
   const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID', STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE', UNKNOWN: 'INDETERMINATE', CONFLICTING: 'INDETERMINATE', UNSUPPORTED: 'UNSUPPORTED' };

@@ -113,3 +113,18 @@ test('public AKP device key rejects private bytes, wrong algorithm and wrong len
   assert.throws(() => coseJWK(changed([-1, Buffer.alloc(1951)])), { code: 'COSE_KEY' });
   assert.throws(() => coseJWK(new Map([...selected, [-2, Buffer.alloc(32)]])), { code: 'COSE_KEY' });
 });
+
+test('issuer policy callback cannot change the validated trust anchor returned to callers', () => {
+  const vector = vectors.base;
+  const options = parameters(vector);
+  const originalAnchor = Buffer.from(options.trustAnchorCertificate);
+  options.authorizeIssuer = context => {
+    assert.deepEqual(context.trustAnchorCertificate, originalAnchor);
+    context.trustAnchorCertificate.fill(0);
+    return { overall: 'VALID' };
+  };
+  const signed = verifySignedDocument(bytes(vector.document), bytes(vector.signature),
+    bytes(vector.credential), options);
+  assert.deepEqual(options.trustAnchorCertificate, originalAnchor);
+  assert.equal(signed.pqPath.trustAnchorCertificate.equals(originalAnchor), true);
+});
