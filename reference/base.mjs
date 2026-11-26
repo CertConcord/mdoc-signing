@@ -186,7 +186,7 @@ function externalDecision(callback, input, code) {
 export function verifySigningCredential(credential, {
   issuerKey, certificate, docType = SIGNING_DOCTYPE, namespace = SIGNING_NAMESPACE,
   profileID = BASE_PROFILE, documentKeyMode = 'INDEPENDENT_PQ', authorizeIssuer, resolveStatus,
-  stateTime, knowledgeTime = stateTime, statusEvidence, trustAnchorCertificate,
+  stateTime, knowledgeTime, statusEvidence, trustAnchorCertificate,
   allowLegacyClassical = false,
 } = {}) {
   requireThat(integer(stateTime) && integer(knowledgeTime) && stateTime <= knowledgeTime, 'MDOC_VALIDATION_TIME');
