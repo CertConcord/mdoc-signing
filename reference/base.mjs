@@ -228,7 +228,8 @@ export function verifySigningCredential(credential, {
     statusAlgorithm: pqProfile ? 'ML-DSA-65' : 'ES256', stateTime, knowledgeTime };
   const authorization = externalDecision(authorizeIssuer, { ...common, certificate: Buffer.from(validated.certificateBytes),
     certificateChain: validated.certificateChain.map(value => Buffer.from(value)),
-    trustAnchorCertificate: pqPath?.trustAnchorCertificate, credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
+    trustAnchorCertificate: pqPath && Buffer.from(pqPath.trustAnchorCertificate),
+    credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
   requireThat(authorization.overall === 'VALID', 'MDOC_ISSUER_AUTHORIZATION', authorization.overall);
   const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: Buffer.from(claims.get('credential_id')), certificate: Buffer.from(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
   const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID', STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE', UNKNOWN: 'INDETERMINATE', CONFLICTING: 'INDETERMINATE', UNSUPPORTED: 'UNSUPPORTED' };
