@@ -49,6 +49,10 @@ const add = (id, statusEvidence, nativeMathUnderPinnedKey, overall, reason, extr
   cases.push({ id, statusEvidence, nativeMathUnderPinnedKey, ...extra,
     expected: { overall, ...(reason ? { reason } : {}) } });
 add('pqc-status-binding-valid', validToken, true, 'VALID');
+add('pqc-status-binding-missing-knowledge-time', validToken, true, 'INVALID',
+  'MDOC_VALIDATION_TIME', { omitKnowledgeTime: true });
+add('pqc-status-binding-historical-knowledge-stale', validToken, true,
+  'INDETERMINATE', 'MDOC_STATUS_STALE', { knowledgeTime: at + 301 });
 add('pqc-status-binding-wrong-sub', statusToken({ sub: 'https://other.example/pq/status/2' }),
   true, 'INVALID', 'MDOC_STATUS_INVALID');
 add('pqc-status-binding-wrong-iss', statusToken({ iss: 'https://other.example/pq/status/2' }),

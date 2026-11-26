@@ -9,6 +9,6 @@
     "vectors/holder-auth.json": "d7e7040693da0be8e10beb114d5a23253ca5b4b6ab18f1386324ea3980539efb",
     "vectors/pqc-base.json": "1dd13ce98e98d2045f7a0c4bd9238bd72a9ae22d8dc46b9aec80f1033d854330",
     "vectors/pqc-document-headers.json": "e20bfd6d992ff31f12a65976eb31ed654c857aa6777299309e373546a7ef9a41",
-    "vectors/pqc-status-binding.json": "8ba5bb84481f8ebe616194f5e442c3acf974328ea721f19e6fa7713da819f77e"
+    "vectors/pqc-status-binding.json": "6fa8c1ca2c715d6509283a1e8271dec503c589953811edd9270b71fe5858c1ed"
   }
 }

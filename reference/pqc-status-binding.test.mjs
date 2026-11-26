@@ -69,8 +69,10 @@ for (const entry of vectors.cases) test('serialized complete PQ status binding: 
     assert.equal(alternate.asymmetricKeyType, 'ml-dsa-65');
     assert.equal(verify(null, input, alternate, signature), entry.nativeMathUnderAlternateKey);
   }
+  const options = parameters(vector);
+  if (entry.omitKnowledgeTime) delete options.knowledgeTime;
   const actual = evaluateSignedDocument(bytes(vector.document), bytes(vector.signature),
-    bytes(vector.credential), parameters(vector));
+    bytes(vector.credential), options);
   assert.deepEqual({ overall: actual.overall, ...(actual.reason ? { reason: actual.reason } : {}) }, entry.expected);
 });
 
