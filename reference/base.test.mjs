@@ -41,6 +41,7 @@ function parameters(vector) {
   return {
     certificate, issuerKey: new X509Certificate(certificate).publicKey,
     profileID: vector.profileID, documentKeyMode: vector.documentKeyMode,
+    allowLegacyClassical: true,
     stateTime: vector.stateTime, knowledgeTime: vector.knowledgeTime, statusEvidence: vector.statusEvidence,
     authorizeIssuer: vector.policy === 'issuer-authorization-missing' ? undefined : context => {
       const selected = new X509Certificate(context.certificate);
@@ -50,7 +51,7 @@ function parameters(vector) {
     resolveStatus: vector.policy === 'status-resolver-missing' ? undefined : vector.policy === 'status-method-unimplemented' ? () => result('UNSUPPORTED') : statusDecision,
   };
 }
-for (const vector of vectors.cases) test('serialized base profile: ' + vector.id, () => {
+for (const vector of vectors.cases) test('serialized historical v2 profile: ' + vector.id, () => {
   const actual = evaluateSignedDocument(Buffer.from(vector.document, 'hex'), Buffer.from(vector.signature, 'hex'), Buffer.from(vector.credential, 'hex'), parameters(vector));
   assert.equal(actual.overall, vector.expected.overall);
   if (vector.expected.reason) assert.equal(actual.reason, vector.expected.reason);

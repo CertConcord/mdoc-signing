@@ -2,13 +2,13 @@
 
 Issuer-certified document keys and signing purposes carried by mdoc credentials, with distinct issuer authentication, holder authentication and document signatures.
 
-**Draft 02. No stable release or upstream adoption is claimed.**
+**Draft 03. Experimental PQ mdoc extension; no ISO algorithm-suite conformance, stable release or upstream adoption is claimed.**
 
 [Draft](draft.md) defines the technical scope and limits. [Sources](sources.json) pins the upstream documents. [Cases](cases.json) identifies the positive and negative evaluation cases.
 
 This repository can be reviewed and used independently of the CertConcord framework. It does not require the framework's authority hierarchy, operation objects or deployment. The framework selects this work through a pinned dependency and adds its own integration policy.
 
-The base reference owns CBOR, issuerAuth/MSO checks, certified key and purpose rules, explicit authorization/status interfaces, and detached COSE signatures. [Serialized vectors](vectors/base.json) contain complete credentials, signatures, documents, certificates and signed status fixtures; their [manifest](vectors/manifest.json) pins exact bytes. [CBOR text vectors](vectors/cbor-text.json) cover exact Unicode text, distinct keys and malformed encodings. The published ISO 2021 baseline and the separately reviewed public WG10 working text are distinguished in the draft. No full ISO conformance or independent security assessment is claimed.
+The base reference owns CBOR, ML-DSA issuerAuth/MSO and certificate-path checks, certified key and purpose rules, explicit issuer authorization and status interfaces, and detached COSE document signatures. A separate [holder-authentication primitive](reference/holder-auth.mjs) verifies a session-bound ML-DSA DeviceSigned signature with the MSO device key; it grants no document-signing authority. [Complete PQ vectors](vectors/pqc-base.json) contain a synthetic ML-DSA certificate path, credential, holder proof, document signature and signed status token with rejection cases. [Holder vectors](vectors/holder-auth.json) test the separate device proof. [Historical v2 vectors](vectors/base.json) remain available only through an explicit classical-legacy option. Their [manifest](vectors/manifest.json) pins exact bytes. [CBOR text vectors](vectors/cbor-text.json) cover exact Unicode text, distinct keys and malformed encodings. The [PQC source note](reference/pqc-research-2026-11-25.md) distinguishes published cryptographic encodings from the reviewed public WG10 working text and this experimental extension. No full ISO conformance or independent security assessment is claimed.
 
 Run with Node.js 24.15 or later:
 
