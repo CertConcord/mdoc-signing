@@ -55,6 +55,7 @@ export function encode(v, depth = 0) {
       requireThat(typeof k === 'string' || Number.isSafeInteger(k) || typeof k === 'bigint', 'CBOR_MAP_KEY');
       return [e(k), x];
     })
+    // RFC 8949 section 4.2.1 core deterministic order, not legacy length-first order.
     .sort((a, b) => Buffer.compare(a[0], b[0]));
   for (let i = 1; i < entries.length; i++)
     requireThat(!entries[i - 1][0].equals(entries[i][0]), 'CBOR_DUPLICATE');
