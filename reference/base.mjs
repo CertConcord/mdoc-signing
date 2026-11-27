@@ -203,7 +203,7 @@ export function verifySigningCredential(credential, {
   requireThat(!same(claims.get('subject_id'), claims.get('credential_id')), 'MDOC_IDENTIFIER_REUSED');
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
-  requireThat(pqProfile || (allowLegacyClassical && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
+  requireThat(pqProfile || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
   if (pqProfile) requireThat(issuerAlgorithm(issuerKey) === -49 &&
     validated.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_PQC_AUTHENTICATION_REQUIRED');
   else requireThat(issuerAlgorithm(issuerKey) === -7 && p256(validated.holderPublicKey),
