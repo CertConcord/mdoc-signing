@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPublicKey } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
+import { types } from 'node:util';
 import { coseJWK, decode, encode } from './cbor.mjs';
 
 const vectors = JSON.parse(readFileSync(new URL('../vectors/cose-ec2-coordinate-types.json', import.meta.url)));
@@ -35,4 +37,29 @@ for (const [name, useX, useY] of [
   const key = new Map([[1, 2], [-1, 1], [-2, x], [-3, y]]);
   assert.deepEqual(encode(key), positiveWire);
   assert.deepEqual(coseJWK(key), selected);
+});
+
+const foreignBytes = bytes => runInNewContext('new Uint8Array(bytes)', { bytes: [...bytes] });
+for (const [name, useX, useY] of [
+  ['x', true, false], ['y', false, true], ['x and y', true, true],
+]) {
+  const x = useX ? foreignBytes(point.x) : point.x;
+  const y = useY ? foreignBytes(point.y) : point.y;
+  const key = new Map([[1, 2], [-1, 1], [-2, x], [-3, y]]);
+  if (useX) { assert.equal(x instanceof Uint8Array, false); assert(types.isUint8Array(x)); }
+  if (useY) { assert.equal(y instanceof Uint8Array, false); assert(types.isUint8Array(y)); }
+  test('cross-realm Uint8Array EC2 coordinate direct call: ' + name, () => {
+    assert.deepEqual(coseJWK(key), selected);
+  });
+  test('cross-realm Uint8Array EC2 coordinate encoding: ' + name, () => {
+    assert.deepEqual(encode(key), positiveWire);
+  });
+}
+
+test('other byte views do not become EC2 coordinates', () => {
+  const wrong = runInNewContext('new Uint8ClampedArray(bytes)', { bytes: [...point.x] });
+  assert.equal(types.isUint8Array(wrong), false);
+  const key = new Map([[1, 2], [-1, 1], [-2, wrong], [-3, point.y]]);
+  assert.throws(() => coseJWK(key), { code: 'COSE_KEY' });
+  assert.throws(() => encode(key), { code: 'CBOR_TYPE' });
 });

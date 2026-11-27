@@ -1,4 +1,5 @@
 import { createPublicKey } from 'node:crypto';
+import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
 const b64u = bytes => Buffer.from(bytes).toString('base64url');
 const unb64u = value => {
@@ -39,7 +40,7 @@ export function encode(v, depth = 0) {
   if (typeof v === 'number' || typeof v === 'bigint')
     return BigInt(v) >= 0n ? head(0, v) : head(1, -1n - BigInt(v));
   if (v instanceof Tag) return Buffer.concat([head(6, v.tag), e(v.value)]);
-  if (Buffer.isBuffer(v) || v instanceof Uint8Array) return Buffer.concat([head(2, v.length), v]);
+  if (types.isUint8Array(v)) return Buffer.concat([head(2, v.length), v]);
   if (typeof v === 'string') {
     const b = Buffer.from(v);
     requireThat(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(b) === v, 'CBOR_TEXT');
@@ -174,7 +175,7 @@ export function coseJWK(key) {
   }
   requireThat(get(key, 1) === 2 && get(key, -1) === 1 && !key.has(-4), 'COSE_KEY');
   const x = get(key, -2), y = get(key, -3);
-  requireThat(x instanceof Uint8Array && y instanceof Uint8Array, 'COSE_KEY');
+  requireThat(types.isUint8Array(x) && types.isUint8Array(y), 'COSE_KEY');
   const jwk = { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) };
   coseKey(jwk);
   createPublicKey({ key: jwk, format: 'jwk' });
