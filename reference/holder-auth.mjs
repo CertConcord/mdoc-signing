@@ -1,5 +1,5 @@
 import { verify } from 'node:crypto';
-import { Tag, decode, embedded, encode, get } from './cbor.mjs';
+import { Tag, boundedCborView, decode, embedded, encode, get } from './cbor.mjs';
 import { BASE_PROFILE, SIGNING_DOCTYPE, SIGNING_NAMESPACE, isLegacyClassicalProfile,
   verifyIssuerSigned } from './base.mjs';
 import { requireThat } from './errors.mjs';
@@ -14,7 +14,7 @@ const protectedBytes = algorithm => encode(new Map([[1, algorithm]]));
 
 function transcript(bytes) {
   requireThat(isNativeBuffer(bytes), 'MDOC_SESSION_TRANSCRIPT');
-  const retained = nativeUint8Copy(bytes), value = decode(retained);
+  const retained = nativeUint8Copy(boundedCborView(bytes)), value = decode(retained);
   requireThat(Array.isArray(value) && value.length === 3 && value[2] !== null && same(encode(value), retained), 'MDOC_SESSION_TRANSCRIPT');
   return value;
 }
@@ -58,7 +58,8 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   profileID = BASE_PROFILE, allowLegacyClassical = false,
 } = {}) {
   requireThat(isNativeBuffer(deviceSigned) && isNativeBuffer(credential), 'MDOC_HOLDER_BYTES');
-  const facts = verifyIssuerSigned(nativeUint8Copy(credential), { issuerKey, certificate, at, docType });
+  const facts = verifyIssuerSigned(nativeUint8Copy(boundedCborView(credential)),
+    { issuerKey, certificate, at, docType });
   requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
   requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
     'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
@@ -68,7 +69,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
     facts.holderPublicKey.asymmetricKeyType === 'ec' &&
     facts.holderPublicKey.asymmetricKeyDetails.namedCurve === 'prime256v1',
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
-  const value = decode(nativeUint8Copy(deviceSigned));
+  const value = decode(nativeUint8Copy(boundedCborView(deviceSigned)));
   requireThat(value instanceof Map && value.size === 2 && value.has('nameSpaces') && value.has('deviceAuth'), 'MDOC_DEVICE_SIGNED');
   const nameSpaces = get(value, 'nameSpaces'), auth = get(value, 'deviceAuth');
   requireThat(nameSpaces instanceof Tag && nameSpaces.tag === 24 && Buffer.isBuffer(nameSpaces.value), 'MDOC_DEVICE_NAMESPACES');
