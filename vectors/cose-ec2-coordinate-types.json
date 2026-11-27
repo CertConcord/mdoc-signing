@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "profile": "historical-v2-ec2-cose-key-structure",
+  "scope": "RFC 9053 EC2 P-256 coordinate CBOR types; mathematical point validity alone does not repair a non-bstr coordinate; no v3 PQC or issuer authority claim",
+  "source": {
+    "id": "rfc9053",
+    "section": "7.1.1, Table 19"
+  },
+  "point": {
+    "x": "0000000000000000000000000000000000000000000000000000000000000000",
+    "y": "66485c780e2f83d72433bd5d84a06bb6541c2af31dae871728bf856a174f93f4"
+  },
+  "cases": [
+    {
+      "id": "ec2-bstr-coordinates",
+      "wire": "a401022001215820000000000000000000000000000000000000000000000000000000000000000022582066485c780e2f83d72433bd5d84a06bb6541c2af31dae871728bf856a174f93f4",
+      "expected": { "overall": "VALID" }
+    },
+    {
+      "id": "ec2-text-x-same-point",
+      "wire": "a401022001217820000000000000000000000000000000000000000000000000000000000000000022582066485c780e2f83d72433bd5d84a06bb6541c2af31dae871728bf856a174f93f4",
+      "expected": { "overall": "INVALID", "reason": "COSE_KEY" }
+    },
+    {
+      "id": "ec2-array-y-same-point",
+      "wire": "a401022001215820000000000000000000000000000000000000000000000000000000000000000022982018661848185c18780e182f188318d71824183318bd185d188418a0186b18b61854181c182a18f3181d18ae188717182818bf1885186a17184f189318f4",
+      "expected": { "overall": "INVALID", "reason": "COSE_KEY" }
+    }
+  ]
+}
