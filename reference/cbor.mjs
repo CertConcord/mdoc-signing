@@ -1,12 +1,7 @@
 import { createPublicKey } from 'node:crypto';
 import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
-const uint8Prototype = Object.getPrototypeOf(Uint8Array.prototype);
-const uint8Buffer = Object.getOwnPropertyDescriptor(uint8Prototype, 'buffer').get;
-const uint8Offset = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteOffset').get;
-const uint8Length = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteLength').get;
-const nativeUint8Copy = value => Buffer.from(new Uint8Array(
-  uint8Buffer.call(value), uint8Offset.call(value), uint8Length.call(value)));
+import { nativeUint8Copy } from './native-bytes.mjs';
 const b64u = bytes => nativeUint8Copy(bytes).toString('base64url');
 const unb64u = value => {
   requireThat(typeof value === 'string' && /^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
@@ -75,7 +70,8 @@ export function decode(
   input,
   { maxBytes = 8 * 1024 * 1024, maxItems = 100000, allowTrailing = false } = {},
 ) {
-  const b = Buffer.from(input);
+  requireThat(types.isUint8Array(input), 'CBOR_TYPE');
+  const b = nativeUint8Copy(input);
   requireThat(b.length <= maxBytes, 'CBOR_SIZE');
   let p = 0,
     items = 0;
@@ -112,7 +108,7 @@ export function decode(
     if (m === 2 || m === 3) {
       requireThat(p + l <= b.length, 'CBOR_TRUNCATED');
       const v = b.subarray(p, (p += l));
-      return m === 2 ? Buffer.from(v) : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(v);
+      return m === 2 ? nativeUint8Copy(v) : new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(v);
     }
     if (m === 4) {
       requireThat(l <= maxItems - items && l <= b.length - p, 'CBOR_ITEM_BUDGET');

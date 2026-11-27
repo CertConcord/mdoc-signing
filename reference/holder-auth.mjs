@@ -3,6 +3,7 @@ import { Tag, decode, embedded, encode, get } from './cbor.mjs';
 import { BASE_PROFILE, SIGNING_DOCTYPE, SIGNING_NAMESPACE, isLegacyClassicalProfile,
   verifyIssuerSigned } from './base.mjs';
 import { requireThat } from './errors.mjs';
+import { nativeUint8Copy } from './native-bytes.mjs';
 
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
 const emptyNameSpaces = () => embedded(new Map());
@@ -13,7 +14,7 @@ const protectedBytes = algorithm => encode(new Map([[1, algorithm]]));
 
 function transcript(bytes) {
   requireThat(Buffer.isBuffer(bytes), 'MDOC_SESSION_TRANSCRIPT');
-  const retained = Buffer.from(bytes), value = decode(retained);
+  const retained = nativeUint8Copy(bytes), value = decode(retained);
   requireThat(Array.isArray(value) && value.length === 3 && value[2] !== null && same(encode(value), retained), 'MDOC_SESSION_TRANSCRIPT');
   return value;
 }
@@ -40,11 +41,11 @@ export function prepareHolderAuthentication(sessionTranscript, { holderPublicKey
     profileID === BASE_PROFILE ? 'MDOC_HOLDER_PQC_REQUIRED' : 'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const nameSpaces = emptyNameSpaces(), headers = protectedBytes(algorithm);
   const tbs = signatureInput(sessionTranscript, docType, nameSpaces, headers);
-  return { tbs: Buffer.from(tbs), finish(signature) {
+  return { tbs: nativeUint8Copy(tbs), finish(signature) {
     requireThat(Buffer.isBuffer(signature) && signature.length === signatureLength(algorithm) &&
       verify(algorithm === -7 ? 'sha256' : null, tbs,
         algorithm === -7 ? { key: holderPublicKey, dsaEncoding: 'ieee-p1363' } : holderPublicKey, signature), 'MDOC_HOLDER_SIGNATURE');
-    return encode({ nameSpaces, deviceAuth: { deviceSignature: [headers, new Map(), null, Buffer.from(signature)] } });
+    return encode({ nameSpaces, deviceAuth: { deviceSignature: [headers, new Map(), null, nativeUint8Copy(signature)] } });
   } };
 }
 
@@ -55,7 +56,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   profileID = BASE_PROFILE, allowLegacyClassical = false,
 } = {}) {
   requireThat(Buffer.isBuffer(deviceSigned) && Buffer.isBuffer(credential), 'MDOC_HOLDER_BYTES');
-  const facts = verifyIssuerSigned(Buffer.from(credential), { issuerKey, certificate, at, docType });
+  const facts = verifyIssuerSigned(nativeUint8Copy(credential), { issuerKey, certificate, at, docType });
   requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
   requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
     'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
@@ -65,7 +66,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
     facts.holderPublicKey.asymmetricKeyType === 'ec' &&
     facts.holderPublicKey.asymmetricKeyDetails.namedCurve === 'prime256v1',
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
-  const value = decode(Buffer.from(deviceSigned));
+  const value = decode(nativeUint8Copy(deviceSigned));
   requireThat(value instanceof Map && value.size === 2 && value.has('nameSpaces') && value.has('deviceAuth'), 'MDOC_DEVICE_SIGNED');
   const nameSpaces = get(value, 'nameSpaces'), auth = get(value, 'deviceAuth');
   requireThat(nameSpaces instanceof Tag && nameSpaces.tag === 24 && Buffer.isBuffer(nameSpaces.value), 'MDOC_DEVICE_NAMESPACES');
@@ -86,5 +87,5 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
     verify(algorithm === -7 ? 'sha256' : null, tbs,
       algorithm === -7 ? { key: facts.holderPublicKey, dsaEncoding: 'ieee-p1363' } : facts.holderPublicKey, cose[3]), 'MDOC_HOLDER_SIGNATURE');
   requireThat(same(cose[0], protectedBytes(algorithm)), 'MDOC_HOLDER_HEADERS');
-  return { issuerFacts: facts, holderProof: { tbs, signature: Buffer.from(cose[3]) } };
+  return { issuerFacts: facts, holderProof: { tbs, signature: nativeUint8Copy(cose[3]) } };
 }
