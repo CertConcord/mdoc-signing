@@ -3,9 +3,12 @@ import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
 import { intrinsicUint8View, nativeUint8Copy } from './native-bytes.mjs';
 const b64u = bytes => nativeUint8Copy(bytes).toString('base64url');
-const unb64u = value => {
-  requireThat(typeof value === 'string' && /^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
+const unb64u = (value, expectedBytes, lengthCode) => {
+  requireThat(typeof value === 'string', 'COSE_BASE64URL');
+  requireThat(value.length === Math.ceil(expectedBytes * 4 / 3), lengthCode);
+  requireThat(/^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
   const bytes = Buffer.from(value, 'base64url');
+  requireThat(bytes.length === expectedBytes, lengthCode);
   requireThat(b64u(bytes) === value, 'COSE_BASE64URL');
   return bytes;
 };
@@ -155,8 +158,9 @@ export function coseKey(jwk) {
   if (jwk?.kty === 'AKP') {
     const name = jwk.alg;
     const algorithm = name === 'ML-DSA-65' ? -49 : name === 'ML-DSA-87' ? -50 : undefined;
-    const pub = unb64u(jwk.pub);
-    requireThat(algorithm && pub.length === (algorithm === -49 ? 1952 : 2592) && !jwk.priv &&
+    requireThat(algorithm, 'COSE_KEY');
+    const pub = unb64u(jwk.pub, algorithm === -49 ? 1952 : 2592, 'COSE_KEY');
+    requireThat(!jwk.priv &&
       Object.keys(jwk).every(key => ['kty', 'alg', 'pub'].includes(key)), 'COSE_KEY');
     let publicKey;
     try { publicKey = createPublicKey({ key: { kty: 'AKP', alg: name, pub: b64u(pub) }, format: 'jwk' }); }
@@ -165,9 +169,8 @@ export function coseKey(jwk) {
     return new Map([[1, 7], [3, algorithm], [-1, pub]]);
   }
   requireThat(jwk?.kty === 'EC' && jwk.crv === 'P-256' && !jwk.d, 'COSE_KEY');
-  const x = unb64u(jwk.x),
-    y = unb64u(jwk.y);
-  requireThat(x.length === 32 && y.length === 32, 'COSE_POINT');
+  const x = unb64u(jwk.x, 32, 'COSE_POINT'),
+    y = unb64u(jwk.y, 32, 'COSE_POINT');
   // Validate the captured coordinates, not a second read of the caller's JWK.
   try { createPublicKey({ key: { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) }, format: 'jwk' }); }
   catch { requireThat(false, 'COSE_POINT'); }
