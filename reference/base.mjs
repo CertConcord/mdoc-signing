@@ -3,7 +3,7 @@ import { types } from 'node:util';
 import { Tag, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
 import { documentKeyRelation } from './key-relation.mjs';
 import { requireThat, validationFailure } from './errors.mjs';
-import { nativeUint8Copy } from './native-bytes.mjs';
+import { isNativeBuffer, nativeUint8Copy } from './native-bytes.mjs';
 
 export const SIGNING_DOCTYPE = 'org.certconcord.signer.1';
 export const SIGNING_NAMESPACE = SIGNING_DOCTYPE;
@@ -41,7 +41,7 @@ function p256(key) {
   return key?.asymmetricKeyType === 'ec' && key.asymmetricKeyDetails.namedCurve === 'prime256v1';
 }
 function certificateDetails(bytes) {
-  requireThat(Buffer.isBuffer(bytes) && bytes.length > 0, 'MDOC_CERTIFICATE');
+  requireThat(isNativeBuffer(bytes) && bytes.length > 0, 'MDOC_CERTIFICATE');
   let certificate;
   try { certificate = new X509Certificate(bytes); }
   catch { requireThat(false, 'MDOC_CERTIFICATE'); }
@@ -87,7 +87,7 @@ function issuerAuth(value) {
 }
 
 function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNING_DOCTYPE, allowPartial = false }, at) {
-  const bytes = Buffer.isBuffer(credential) ? nativeUint8Copy(credential) : encode(credential);
+  const bytes = isNativeBuffer(credential) ? nativeUint8Copy(credential) : encode(credential);
   const is = decode(bytes);
   fields(is, ['nameSpaces', 'issuerAuth']);
   requireThat(types.isUint8Array(certificate), 'MDOC_CERTIFICATE');
@@ -263,7 +263,7 @@ export function verifySigningCredential(credential, {
 }
 
 function signatureParameters(document, { credential, publicKey, requiredProtectedHeaders = new Map() }) {
-  requireThat(Buffer.isBuffer(document) && Buffer.isBuffer(credential), 'MDOC_DOCUMENT_BYTES');
+  requireThat(isNativeBuffer(document) && isNativeBuffer(credential), 'MDOC_DOCUMENT_BYTES');
   const algorithm = { 'ml-dsa-65': -49, 'ml-dsa-87': -50, ec: -7 }[publicKey?.asymmetricKeyType];
   requireThat(algorithm && (algorithm !== -7 || p256(publicKey)), 'MDOC_DOCUMENT_ALGORITHM', 'UNSUPPORTED');
   requireThat(requiredProtectedHeaders instanceof Map && [...requiredProtectedHeaders.keys()].every(key => (text(key) || Number.isSafeInteger(key)) && ![1, 2, 3, CREDENTIAL_HEADER].includes(key)), 'MDOC_REQUIRED_HEADERS');
@@ -273,13 +273,15 @@ function signatureParameters(document, { credential, publicKey, requiredProtecte
   return { algorithm, protectedBytes, tbs: encode(['Signature1', protectedBytes, Buffer.alloc(0), payload]), publicKey };
 }
 function verifyDocumentValue(parameters, signature) {
-  return Buffer.isBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
+  return isNativeBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
 }
 export function prepareDocumentSignature(document, options) {
   const parameters = signatureParameters(document, options);
   return { tbs: nativeUint8Copy(parameters.tbs), algorithm: parameters.algorithm, finish(signature) {
-    requireThat(verifyDocumentValue(parameters, signature), 'MDOC_DOCUMENT_SIGNATURE');
-    return encode([parameters.protectedBytes, new Map(), null, nativeUint8Copy(signature)]);
+    requireThat(isNativeBuffer(signature), 'MDOC_DOCUMENT_SIGNATURE');
+    const retainedSignature = nativeUint8Copy(signature);
+    requireThat(verifyDocumentValue(parameters, retainedSignature), 'MDOC_DOCUMENT_SIGNATURE');
+    return encode([parameters.protectedBytes, new Map(), null, retainedSignature]);
   } };
 }
 export function verifyDocumentSignature(signature, document, options) {
@@ -299,7 +301,7 @@ export function verifyDocumentSignature(signature, document, options) {
 }
 export function verifySignedDocument(document, signature, credential, options) {
   let byteInputs;
-  try { byteInputs = Buffer.isBuffer(document) && Buffer.isBuffer(signature) && Buffer.isBuffer(credential); }
+  try { byteInputs = isNativeBuffer(document) && isNativeBuffer(signature) && isNativeBuffer(credential); }
   catch { throw new Error('Untrusted document input type could not be checked'); }
   requireThat(byteInputs, 'MDOC_DOCUMENT_BYTES');
   let retainedDocument, retainedSignature, retainedCredential, retainedOptions;

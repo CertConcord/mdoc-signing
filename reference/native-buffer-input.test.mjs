@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { X509Certificate } from 'node:crypto';
+import { verify, X509Certificate } from 'node:crypto';
+import { types } from 'node:util';
 import { runInNewContext } from 'node:vm';
 import { evaluateSignedDocument, inspectIssuerSigned, prepareDocumentSignature,
   verifyDocumentSignature } from './base.mjs';
 import { prepareHolderAuthentication, verifyHolderAuthentication } from './holder-auth.mjs';
 import { decode } from './cbor.mjs';
+import { nativeUint8Copy } from './native-bytes.mjs';
 
 const pq = JSON.parse(readFileSync(new URL('../vectors/pqc-base.json', import.meta.url)));
 const holder = JSON.parse(readFileSync(new URL('../vectors/holder-auth.json', import.meta.url)));
@@ -30,6 +32,19 @@ const selectedInputs = () => {
       resolveStatus: () => ({ overall: 'VALID', status: 'GOOD', algorithm: 'ML-DSA-65' }),
     },
   };
+};
+const mutateSharedSourceDuringCopy = (source, work) => {
+  const originalSet = Uint8Array.prototype.set;
+  let mutated = false;
+  Uint8Array.prototype.set = function (bytes, offset) {
+    if (!mutated && bytes.buffer === source.buffer && this.byteLength === source.byteLength) {
+      source[0] ^= 1;
+      mutated = true;
+    }
+    return originalSet.call(this, bytes, offset);
+  };
+  try { return { result: work(), mutated }; }
+  finally { Uint8Array.prototype.set = originalSet; }
 };
 
 test('CBOR decoding uses native byte-view contents instead of valueOf', () => {
@@ -122,7 +137,10 @@ test('document signature packaging retains the verified signature bytes', () => 
   signature.valueOf = () => Buffer.alloc(signature.length);
   const options = { credential: input.credential, publicKey: validated.publicKey };
   const output = prepareDocumentSignature(input.document, options).finish(signature);
-  assert.deepEqual(decode(output)[3], decode(input.signature)[3]);
+  const extracted = decode(output)[3];
+  assert.deepEqual(extracted, decode(input.signature)[3]);
+  assert.equal(verify(null, prepareDocumentSignature(input.document, options).tbs,
+    validated.publicKey, extracted), true);
   assert(verifyDocumentSignature(output, input.document, options).signature);
 });
 
@@ -155,7 +173,74 @@ test('holder proof packaging retains the verified DeviceSignature bytes', () => 
   signature.valueOf = () => Buffer.alloc(signature.length);
   const output = prepareHolderAuthentication(options.sessionTranscript,
     { holderPublicKey: facts.holderPublicKey }).finish(signature);
-  assert.deepEqual(decode(output).get('deviceAuth').get('deviceSignature')[3],
-    decode(bytes(v.deviceSigned)).get('deviceAuth').get('deviceSignature')[3]);
+  const extracted = decode(output).get('deviceAuth').get('deviceSignature')[3];
+  assert.deepEqual(extracted, decode(bytes(v.deviceSigned)).get('deviceAuth').get('deviceSignature')[3]);
+  assert.equal(verify(null, prepareHolderAuthentication(options.sessionTranscript,
+    { holderPublicKey: facts.holderPublicKey }).tbs, facts.holderPublicKey, extracted), true);
   assert(verifyHolderAuthentication(output, credential, options).holderProof.signature);
+});
+
+test('native byte copies reject wider views even when they inherit Buffer identity', () => {
+  assert.deepEqual(nativeUint8Copy(runInNewContext('Uint8Array.from([1, 2])')),
+    Buffer.from([1, 2]));
+  const wider = new Uint16Array([0x0201]);
+  Object.setPrototypeOf(wider, Buffer.prototype);
+  assert.equal(Buffer.isBuffer(wider), true);
+  assert.equal(types.isUint8Array(wider), false);
+  assert.throws(() => nativeUint8Copy(wider), TypeError);
+  const input = selectedInputs();
+  const validated = evaluateSignedDocument(input.document, input.signature, input.credential, input.options);
+  assert.equal(validated.overall, 'VALID');
+  assert.throws(() => prepareDocumentSignature(wider,
+    { credential: input.credential, publicKey: validated.publicKey }), { code: 'MDOC_DOCUMENT_BYTES' });
+  assert.throws(() => inspectIssuerSigned(wider, input.options), { code: 'CBOR_TYPE' });
+  assert.deepEqual(evaluateSignedDocument(wider, input.signature, input.credential, input.options),
+    { overall: 'INVALID', reason: 'MDOC_DOCUMENT_BYTES' });
+  const v = holder.base, certificate = bytes(v.certificate), credential = bytes(v.credential);
+  const options = { certificate, issuerKey: new X509Certificate(certificate).publicKey,
+    at: v.at, sessionTranscript: bytes(v.sessionTranscript) };
+  const facts = inspectIssuerSigned(credential, options);
+  assert.throws(() => prepareHolderAuthentication(wider,
+    { holderPublicKey: facts.holderPublicKey }), { code: 'MDOC_SESSION_TRANSCRIPT' });
+  assert.throws(() => verifyHolderAuthentication(wider, credential, options),
+    { code: 'MDOC_HOLDER_BYTES' });
+});
+
+test('document finish packages only a signature verified from its retained snapshot', () => {
+  const input = selectedInputs();
+  const validated = evaluateSignedDocument(input.document, input.signature, input.credential, input.options);
+  assert.equal(validated.overall, 'VALID');
+  const options = { credential: input.credential, publicKey: validated.publicKey };
+  const original = decode(input.signature)[3];
+  const shared = Buffer.from(new SharedArrayBuffer(original.length));
+  original.copy(shared);
+  const prepared = prepareDocumentSignature(input.document, options);
+  let packageBytes, error;
+  const attempt = mutateSharedSourceDuringCopy(shared, () => {
+    try { packageBytes = prepared.finish(shared); }
+    catch (failure) { error = failure; }
+  });
+  assert.equal(attempt.mutated, true);
+  assert.equal(error?.code, 'MDOC_DOCUMENT_SIGNATURE');
+  assert.equal(packageBytes, undefined);
+});
+
+test('holder finish packages only a DeviceSignature verified from its retained snapshot', () => {
+  const v = holder.base, certificate = bytes(v.certificate), credential = bytes(v.credential);
+  const options = { certificate, issuerKey: new X509Certificate(certificate).publicKey,
+    at: v.at, sessionTranscript: bytes(v.sessionTranscript) };
+  const facts = inspectIssuerSigned(credential, options);
+  const original = decode(bytes(v.deviceSigned)).get('deviceAuth').get('deviceSignature')[3];
+  const shared = Buffer.from(new SharedArrayBuffer(original.length));
+  original.copy(shared);
+  const prepared = prepareHolderAuthentication(options.sessionTranscript,
+    { holderPublicKey: facts.holderPublicKey });
+  let packageBytes, error;
+  const attempt = mutateSharedSourceDuringCopy(shared, () => {
+    try { packageBytes = prepared.finish(shared); }
+    catch (failure) { error = failure; }
+  });
+  assert.equal(attempt.mutated, true);
+  assert.equal(error?.code, 'MDOC_HOLDER_SIGNATURE');
+  assert.equal(packageBytes, undefined);
 });
