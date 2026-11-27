@@ -22,6 +22,8 @@ Standalone document-signature preparation and verification accept a caller-suppl
 
 [CBOR map-key encoder vectors](vectors/cbor-encode-map-keys.json) retain the bytes formerly emitted for duplicate integer labels and an unselected byte-string label, alongside valid distinct labels. The encoder now refuses inputs that its selected decoder would reject for those key violations.
 
+[EC2 coordinate-type vectors](vectors/cose-ec2-coordinate-types.json) hold one valid P-256 point as byte-string coordinates and as two malformed COSE_Key encodings with a text `x` or array `y`. The historical v2 parser rejects both malformed types before converting to a JWK, even though the coordinate bytes form the same valid point. RFC 9053 §7.1.1 defines the COSE types; this check does not select a v2 profile or change the experimental v3 PQ suite.
+
 [PQ document map-order vectors](vectors/pqc-document-map-order.json) distinguish RFC 8949 core bytewise map-key ordering from the older length-first order using independently signed detached COSE headers. Both signatures have valid ML-DSA mathematics; only the selected exact header bytes pass this experimental document primitive.
 
 Run with Node.js 24.15 or later:

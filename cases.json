@@ -740,6 +740,9 @@
     {"id": "pq-forged-issuer-key-options", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/issuer-key-binding.json", "scope": "A valid ML-DSA-65 signature under an attacker key cannot pass issuerAuth by supplying a key-like object whose export claims the pinned certificate SPKI."},
     {"id": "pqc-document-map-core-bytewise", "overall": "VALID", "vector": "vectors/pqc-document-map-order.json", "scope": "The ML-DSA-65 detached signature accepts RFC 8949 core encoded-key byte order for integer extension labels 100 and -1."},
     {"id": "pqc-document-map-length-first", "overall": "INVALID", "reason": "MDOC_DOCUMENT_PROTECTED_HEADERS", "vector": "vectors/pqc-document-map-order.json", "scope": "Valid ML-DSA-65 mathematics over the same header map in older length-first order fails the exact protected-header contract."},
-    {"id": "pqc-document-map-length-first-bad-math", "overall": "INVALID", "reason": "MDOC_DOCUMENT_SIGNATURE", "vector": "vectors/pqc-document-map-order.json", "scope": "A damaged signature over the length-first header bytes fails mathematics before exact-header comparison."}
+    {"id": "pqc-document-map-length-first-bad-math", "overall": "INVALID", "reason": "MDOC_DOCUMENT_SIGNATURE", "vector": "vectors/pqc-document-map-order.json", "scope": "A damaged signature over the length-first header bytes fails mathematics before exact-header comparison."},
+    {"id": "ec2-bstr-coordinates", "overall": "VALID", "vector": "vectors/cose-ec2-coordinate-types.json", "scope": "The historical v2 EC2 parser accepts a valid P-256 point whose x and y are CBOR byte strings."},
+    {"id": "ec2-text-x-same-point", "overall": "INVALID", "reason": "COSE_KEY", "vector": "vectors/cose-ec2-coordinate-types.json", "scope": "A CBOR text x with the same valid P-256 coordinate bytes is not an EC2 byte string."},
+    {"id": "ec2-array-y-same-point", "overall": "INVALID", "reason": "COSE_KEY", "vector": "vectors/cose-ec2-coordinate-types.json", "scope": "A CBOR array y with the same valid P-256 coordinate bytes is not the selected EC2 byte string."}
   ]
 }

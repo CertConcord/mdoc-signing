@@ -173,7 +173,9 @@ export function coseJWK(key) {
     return jwk;
   }
   requireThat(get(key, 1) === 2 && get(key, -1) === 1 && !key.has(-4), 'COSE_KEY');
-  const jwk = { kty: 'EC', crv: 'P-256', x: b64u(get(key, -2)), y: b64u(get(key, -3)) };
+  const x = get(key, -2), y = get(key, -3);
+  requireThat(Buffer.isBuffer(x) && Buffer.isBuffer(y), 'COSE_KEY');
+  const jwk = { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) };
   coseKey(jwk);
   createPublicKey({ key: jwk, format: 'jwk' });
   return jwk;

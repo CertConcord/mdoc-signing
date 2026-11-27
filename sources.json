@@ -17,6 +17,14 @@
       "retrievedAt": "2026-10-06T01:56:07.402Z"
     },
     {
+      "id": "rfc9053",
+      "url": "https://www.rfc-editor.org/rfc/rfc9053.txt",
+      "sha256": "3d470615875620375f8453ba25b8dce7e4d0271e76b0b79a46df34ccb2d56ab0",
+      "bytes": 120315,
+      "retrievedAt": "2026-11-27",
+      "license": "IETF Trust"
+    },
+    {
       "id": "multipazMdoc",
       "url": "https://raw.githubusercontent.com/openwallet-foundation/multipaz/0.100.0/multipaz/src/commonMain/kotlin/org/multipaz/mdoc/util/MdocUtil.kt",
       "sha256": "e0be3d9ce76041da8f4a4c05794efa0c520e9efca03b7b4cd3ba84374fef8604",
@@ -72,6 +80,7 @@
   ],
   "reviewScope": [
     "RFC 8949 section 4.2.1 core deterministic encoded-key byte ordering",
+    "RFC 9053 section 7.1.1 EC2 P-256 coordinate CBOR types",
     "ISO catalog metadata",
     "public WG10 certificate binding, revocation, DeviceSigned and device authentication sections",
     "RFC 9360 x5t",

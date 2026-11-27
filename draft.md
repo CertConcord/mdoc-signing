@@ -10,6 +10,8 @@ The complete base profile is `MDOC-SIGNING-PERSON-PQ-v3`: an ML-DSA-65 issuing p
 
 The earlier `MDOC-SIGNING-PERSON-PQ-v2`, `MDOC-SIGNING-PERSON-DEVICE-v2` and `MDOC-SIGNING-PERSON-ASSOCIATED-v2` profiles rely on classical issuer and holder authentication. They are historical test fixtures, not the default or an implicit fallback. The reference accepts them only with an explicit Boolean `allowLegacyClassical=true` selection and their exact historical profile IDs; truthy strings and numbers do not enable it. The flag does not relax any v3 algorithm check. No v2 credential is upgraded by renaming it v3. Applications select the exact profile ID, document type, namespace and expected key mode as external verification parameters; credential claims cannot select trusted policy.
 
+Historical v2 holder keys use the selected uncompressed P-256 EC2 COSE_Key shape. RFC 9053 §7.1.1 Table 19 assigns CBOR byte strings to `x` and to this uncompressed `y`; the reference rejects a text or array coordinate even when its coerced bytes describe a valid curve point. The COSE type check alone does not enable the v2 profile or authorize an issuer.
+
 Organizational seals, encryption and legal qualification are outside this personal baseline. Its purpose is exactly `DOCUMENT_SIGN`; changing a string cannot create another capability.
 
 ## 2. Standards and development baselines
