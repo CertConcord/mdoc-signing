@@ -52,6 +52,53 @@ test('valid holder proof signs the exact tagged DeviceAuthenticationBytes', () =
   assert.throws(() => verifyDocumentSignature(bytes(value.deviceSigned), Buffer.from('document'), { credential: bytes(value.credential), publicKey: facts.holderPublicKey }), { code: 'MDOC_DOCUMENT_COSE' });
 });
 
+function keyThatChangesInput(certificate, change) {
+  const issuerKey = new X509Certificate(certificate).publicKey;
+  const nativeExport = issuerKey.export.bind(issuerKey);
+  issuerKey.export = function (options) {
+    change();
+    return nativeExport(options);
+  };
+  return issuerKey;
+}
+
+test('holder verification snapshots the selected transcript before issuer key methods', () => {
+  const value = vectors.base;
+  const changed = vectors.cases.find(entry => entry.id === 'changed-session-transcript');
+  const certificate = bytes(value.certificate), credential = bytes(value.credential);
+  const deviceSigned = bytes(value.deviceSigned), selectedTranscript = bytes(changed.sessionTranscript);
+  const signedTranscript = bytes(value.sessionTranscript);
+  assert.equal(selectedTranscript.length, signedTranscript.length);
+  assert.throws(() => verifyHolderAuthentication(deviceSigned, credential, {
+    issuerKey: new X509Certificate(certificate).publicKey, certificate, at: value.at,
+    sessionTranscript: selectedTranscript,
+  }), { code: 'MDOC_HOLDER_SIGNATURE' });
+  const issuerKey = keyThatChangesInput(certificate, () => signedTranscript.copy(selectedTranscript));
+  assert.throws(() => verifyHolderAuthentication(deviceSigned, credential, {
+    issuerKey, certificate, at: value.at, sessionTranscript: selectedTranscript,
+  }), { code: 'MDOC_HOLDER_SIGNATURE' });
+  assert.deepEqual(selectedTranscript, signedTranscript);
+});
+
+test('holder verification snapshots DeviceSigned before issuer key methods', () => {
+  const value = vectors.base, certificate = bytes(value.certificate);
+  const credential = bytes(value.credential), signedDevice = bytes(value.deviceSigned);
+  const changedValue = decode(signedDevice);
+  changedValue.get('deviceAuth').get('deviceSignature')[3][0] ^= 1;
+  const changedDevice = encode(changedValue);
+  assert.equal(changedDevice.length, signedDevice.length);
+  const sessionTranscript = bytes(value.sessionTranscript);
+  assert.throws(() => verifyHolderAuthentication(changedDevice, credential, {
+    issuerKey: new X509Certificate(certificate).publicKey, certificate, at: value.at,
+    sessionTranscript,
+  }), { code: 'MDOC_HOLDER_SIGNATURE' });
+  const issuerKey = keyThatChangesInput(certificate, () => signedDevice.copy(changedDevice));
+  assert.throws(() => verifyHolderAuthentication(changedDevice, credential, {
+    issuerKey, certificate, at: value.at, sessionTranscript,
+  }), { code: 'MDOC_HOLDER_SIGNATURE' });
+  assert.deepEqual(changedDevice, signedDevice);
+});
+
 test('holder preparation refuses a malformed transcript and wrong signature', () => {
   const certificate = bytes(vectors.base.certificate), issuerKey = new X509Certificate(certificate).publicKey;
   const facts = inspectIssuerSigned(bytes(vectors.base.credential), { issuerKey, certificate });

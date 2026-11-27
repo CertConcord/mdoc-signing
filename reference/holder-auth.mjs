@@ -58,7 +58,12 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   profileID = BASE_PROFILE, allowLegacyClassical = false,
 } = {}) {
   requireThat(isNativeBuffer(deviceSigned) && isNativeBuffer(credential), 'MDOC_HOLDER_BYTES');
-  const facts = verifyIssuerSigned(nativeUint8Copy(boundedCborView(credential)),
+  requireThat(isNativeBuffer(sessionTranscript), 'MDOC_SESSION_TRANSCRIPT');
+  // Pin all caller-owned proof inputs before issuer-key consistency methods run.
+  const retainedDeviceSigned = nativeUint8Copy(boundedCborView(deviceSigned));
+  const retainedCredential = nativeUint8Copy(boundedCborView(credential));
+  const retainedTranscript = nativeUint8Copy(boundedCborView(sessionTranscript));
+  const facts = verifyIssuerSigned(retainedCredential,
     { issuerKey, certificate, at, docType });
   requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
   requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
@@ -69,7 +74,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
     facts.holderPublicKey.asymmetricKeyType === 'ec' &&
     facts.holderPublicKey.asymmetricKeyDetails.namedCurve === 'prime256v1',
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
-  const value = decode(nativeUint8Copy(boundedCborView(deviceSigned)));
+  const value = decode(retainedDeviceSigned);
   requireThat(value instanceof Map && value.size === 2 && value.has('nameSpaces') && value.has('deviceAuth'), 'MDOC_DEVICE_SIGNED');
   const nameSpaces = get(value, 'nameSpaces'), auth = get(value, 'deviceAuth');
   requireThat(nameSpaces instanceof Tag && nameSpaces.tag === 24 && Buffer.isBuffer(nameSpaces.value), 'MDOC_DEVICE_NAMESPACES');
@@ -85,7 +90,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   const headers = decode(cose[0]);
   const algorithm = holderAlgorithm(facts.holderPublicKey);
   requireThat(headers instanceof Map && headers.get(1) === algorithm, 'MDOC_HOLDER_ALGORITHM');
-  const tbs = signatureInput(sessionTranscript, docType, nameSpaces, cose[0]);
+  const tbs = signatureInput(retainedTranscript, docType, nameSpaces, cose[0]);
   requireThat(cose[3].length === signatureLength(algorithm) &&
     verify(algorithm === -7 ? 'sha256' : null, tbs,
       algorithm === -7 ? { key: facts.holderPublicKey, dsaEncoding: 'ieee-p1363' } : facts.holderPublicKey, cose[3]), 'MDOC_HOLDER_SIGNATURE');
