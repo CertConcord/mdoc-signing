@@ -1,7 +1,9 @@
 import { createHash, createPublicKey, KeyObject, randomBytes, sign, verify, X509Certificate } from 'node:crypto';
+import { types } from 'node:util';
 import { Tag, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
 import { documentKeyRelation } from './key-relation.mjs';
 import { requireThat, validationFailure } from './errors.mjs';
+import { isNativeBuffer, nativeUint8Copy } from './native-bytes.mjs';
 
 export const SIGNING_DOCTYPE = 'org.certconcord.signer.1';
 export const SIGNING_NAMESPACE = SIGNING_DOCTYPE;
@@ -39,7 +41,7 @@ function p256(key) {
   return key?.asymmetricKeyType === 'ec' && key.asymmetricKeyDetails.namedCurve === 'prime256v1';
 }
 function certificateDetails(bytes) {
-  requireThat(Buffer.isBuffer(bytes) && bytes.length > 0, 'MDOC_CERTIFICATE');
+  requireThat(isNativeBuffer(bytes) && bytes.length > 0, 'MDOC_CERTIFICATE');
   let certificate;
   try { certificate = new X509Certificate(bytes); }
   catch { requireThat(false, 'MDOC_CERTIFICATE'); }
@@ -85,10 +87,11 @@ function issuerAuth(value) {
 }
 
 function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNING_DOCTYPE, allowPartial = false }, at) {
-  const bytes = Buffer.isBuffer(credential) ? Buffer.from(credential) : encode(credential);
+  const bytes = isNativeBuffer(credential) ? nativeUint8Copy(credential) : encode(credential);
   const is = decode(bytes);
   fields(is, ['nameSpaces', 'issuerAuth']);
-  const ds = certificateDetails(Buffer.from(certificate ?? []));
+  requireThat(types.isUint8Array(certificate), 'MDOC_CERTIFICATE');
+  const ds = certificateDetails(nativeUint8Copy(certificate));
   const selectedAlgorithm = issuerAlgorithm(ds.publicKey);
   requireThat(selectedAlgorithm && selectedAlgorithm === issuerAlgorithm(issuerKey) && same(spki(ds.publicKey), spki(issuerKey)), 'MDOC_ISSUER_KEY');
   if (at !== undefined) requireThat(ds.notBefore <= at && at < ds.notAfter, 'MDOC_CERTIFICATE_VALIDITY');
@@ -260,23 +263,25 @@ export function verifySigningCredential(credential, {
 }
 
 function signatureParameters(document, { credential, publicKey, requiredProtectedHeaders = new Map() }) {
-  requireThat(Buffer.isBuffer(document) && Buffer.isBuffer(credential), 'MDOC_DOCUMENT_BYTES');
+  requireThat(isNativeBuffer(document) && isNativeBuffer(credential), 'MDOC_DOCUMENT_BYTES');
   const algorithm = { 'ml-dsa-65': -49, 'ml-dsa-87': -50, ec: -7 }[publicKey?.asymmetricKeyType];
   requireThat(algorithm && (algorithm !== -7 || p256(publicKey)), 'MDOC_DOCUMENT_ALGORITHM', 'UNSUPPORTED');
   requireThat(requiredProtectedHeaders instanceof Map && [...requiredProtectedHeaders.keys()].every(key => (text(key) || Number.isSafeInteger(key)) && ![1, 2, 3, CREDENTIAL_HEADER].includes(key)), 'MDOC_REQUIRED_HEADERS');
   const extensions = copy(requiredProtectedHeaders);
   const headers = new Map([[1, algorithm], [2, [CREDENTIAL_HEADER, ...extensions.keys()]], [3, 'application/certconcord-mdoc-document'], [CREDENTIAL_HEADER, hash('sha512', credential)], ...extensions]);
-  const protectedBytes = encode(headers), payload = Buffer.from(document);
+  const protectedBytes = encode(headers), payload = nativeUint8Copy(document);
   return { algorithm, protectedBytes, tbs: encode(['Signature1', protectedBytes, Buffer.alloc(0), payload]), publicKey };
 }
 function verifyDocumentValue(parameters, signature) {
-  return Buffer.isBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
+  return isNativeBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
 }
 export function prepareDocumentSignature(document, options) {
   const parameters = signatureParameters(document, options);
-  return { tbs: Buffer.from(parameters.tbs), algorithm: parameters.algorithm, finish(signature) {
-    requireThat(verifyDocumentValue(parameters, signature), 'MDOC_DOCUMENT_SIGNATURE');
-    return encode([parameters.protectedBytes, new Map(), null, Buffer.from(signature)]);
+  return { tbs: nativeUint8Copy(parameters.tbs), algorithm: parameters.algorithm, finish(signature) {
+    requireThat(isNativeBuffer(signature), 'MDOC_DOCUMENT_SIGNATURE');
+    const retainedSignature = nativeUint8Copy(signature);
+    requireThat(verifyDocumentValue(parameters, retainedSignature), 'MDOC_DOCUMENT_SIGNATURE');
+    return encode([parameters.protectedBytes, new Map(), null, retainedSignature]);
   } };
 }
 export function verifyDocumentSignature(signature, document, options) {
@@ -292,29 +297,37 @@ export function verifyDocumentSignature(signature, document, options) {
   const received = { ...parameters, tbs: encode(['Signature1', value[0], Buffer.alloc(0), document]) };
   requireThat(verifyDocumentValue(received, value[3]), 'MDOC_DOCUMENT_SIGNATURE');
   requireThat(same(value[0], parameters.protectedBytes), 'MDOC_DOCUMENT_PROTECTED_HEADERS');
-  return { tbs: received.tbs, signature: Buffer.from(value[3]) };
+  return { tbs: received.tbs, signature: nativeUint8Copy(value[3]) };
 }
 export function verifySignedDocument(document, signature, credential, options) {
   let byteInputs;
-  try { byteInputs = Buffer.isBuffer(document) && Buffer.isBuffer(signature) && Buffer.isBuffer(credential); }
+  try { byteInputs = isNativeBuffer(document) && isNativeBuffer(signature) && isNativeBuffer(credential); }
   catch { throw new Error('Untrusted document input type could not be checked'); }
   requireThat(byteInputs, 'MDOC_DOCUMENT_BYTES');
   let retainedDocument, retainedSignature, retainedCredential, retainedOptions;
   try {
-    retainedDocument = Buffer.from(document);
-    retainedSignature = Buffer.from(signature);
-    retainedCredential = Buffer.from(credential);
+    retainedDocument = nativeUint8Copy(document);
+    retainedSignature = nativeUint8Copy(signature);
+    retainedCredential = nativeUint8Copy(credential);
     // Caller contract: trusted configuration supplies a genuine native public KeyObject.
-    const configuredIssuerKey = options.issuerKey;
+    const { issuerKey: configuredIssuerKey, certificate: configuredCertificate,
+      trustAnchorCertificate: configuredAnchor, requiredProtectedHeaders: configuredHeaders,
+      statusEvidence: configuredStatusEvidence, ...otherOptions } = options;
     const issuerKey = configuredIssuerKey === undefined ? undefined : createPublicKey({
       key: configuredIssuerKey.export({ format: 'der', type: 'spki' }), type: 'spki', format: 'der',
     });
     if (issuerKey && !nativeKeyEquals.call(configuredIssuerKey, issuerKey))
       throw new Error('Configured issuer key differs from exported key');
-    retainedOptions = { ...options, certificate: Buffer.from(options.certificate), issuerKey,
-      trustAnchorCertificate: options.trustAnchorCertificate === undefined ? undefined : Buffer.from(options.trustAnchorCertificate),
-      requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()),
-      statusEvidence: options.statusEvidence === undefined ? undefined : copy(options.statusEvidence) };
+    if (!types.isUint8Array(configuredCertificate) ||
+      (configuredAnchor !== undefined && !types.isUint8Array(configuredAnchor)))
+      throw new Error('Configured certificate bytes are not a native byte view');
+    const retainedCertificate = nativeUint8Copy(configuredCertificate);
+    const retainedAnchor = configuredAnchor === undefined ? undefined : nativeUint8Copy(configuredAnchor);
+    const retainedHeaders = copy(configuredHeaders ?? new Map());
+    const retainedStatus = configuredStatusEvidence === undefined ? undefined : copy(configuredStatusEvidence);
+    retainedOptions = { ...otherOptions, certificate: retainedCertificate, issuerKey,
+      trustAnchorCertificate: retainedAnchor, requiredProtectedHeaders: retainedHeaders,
+      statusEvidence: retainedStatus };
   } catch { throw new Error('Untrusted document inputs could not be copied'); }
   const validated = verifySigningCredential(retainedCredential, retainedOptions);
   const documentSignature = verifyDocumentSignature(retainedSignature, retainedDocument, { credential: validated.credential, publicKey: validated.publicKey, requiredProtectedHeaders: retainedOptions.requiredProtectedHeaders });
