@@ -267,8 +267,9 @@ function signatureParameters(document, { credential, publicKey, requiredProtecte
   const algorithm = { 'ml-dsa-65': -49, 'ml-dsa-87': -50, ec: -7 }[publicKey?.asymmetricKeyType];
   requireThat(algorithm && (algorithm !== -7 || p256(publicKey)), 'MDOC_DOCUMENT_ALGORITHM', 'UNSUPPORTED');
   requireThat(requiredProtectedHeaders instanceof Map, 'MDOC_REQUIRED_HEADERS');
-  // Select one map before validating labels, then encode that same selection.
-  const selectedEntries = [...requiredProtectedHeaders];
+  // Capture each pair before advancing an iterator that may reuse its entry array.
+  const selectedEntries = [];
+  for (const [key, value] of requiredProtectedHeaders) selectedEntries.push([key, value]);
   const selectedHeaders = new Map(selectedEntries);
   requireThat(selectedHeaders.size === selectedEntries.length, 'MDOC_REQUIRED_HEADERS');
   const eligibleLabel = key => text(key) || Number.isSafeInteger(key) ||

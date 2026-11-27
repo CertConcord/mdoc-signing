@@ -61,6 +61,26 @@ test('selected required headers reject repeated iterator labels', () => {
     { overall: 'INVALID', code: 'MDOC_REQUIRED_HEADERS' });
 });
 
+test('reused iterator entry preserves two distinct application labels', () => {
+  const entries = [['urn:example:first', 'first'], ['urn:example:second', 'second']];
+  class ReusedEntryHeaders extends Map {
+    *entries() {
+      const entry = [];
+      for (const [key, value] of super.entries()) {
+        entry[0] = key;
+        entry[1] = value;
+        yield entry;
+      }
+    }
+    [Symbol.iterator]() { return this.entries(); }
+  }
+  const expected = prepareDocumentSignature(document, options(new Map(entries)));
+  const actual = prepareDocumentSignature(document, options(new ReusedEntryHeaders(entries)));
+  assert.deepEqual(actual.tbs, expected.tbs);
+  assert.deepEqual(decode(decode(actual.tbs)[1]).get(2),
+    [CREDENTIAL_HEADER, 'urn:example:first', 'urn:example:second']);
+});
+
 const vectors = JSON.parse(readFileSync(new URL('../vectors/pqc-document-large-critical.json', import.meta.url)));
 const vectorDocument = bytes(vectors.document), vectorCredential = bytes(vectors.credential);
 const vectorKey = createPublicKey({ key: bytes(vectors.publicKeyDER), type: 'spki', format: 'der' });
