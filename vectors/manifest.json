@@ -7,6 +7,7 @@
     "vectors/issuer-facts.json": "1c300512e0b280a96d9269c192ec480dcd210389affab8c4377beed6a6d77498",
     "vectors/cbor-text.json": "76dfc807d5c0ca9dcf3c439f08656dfe97ed064de22fb70e7a1c18a5b760b570",
     "vectors/cbor-encode-map-keys.json": "b82dc8ab0756e71f0d48b050fc42295954004d46792e32a3cc042d00efadde31",
+    "vectors/evaluator-errors.json": "ad51304a3775d64eab33ccd362cd3cc8ab49e51a759d0eb3e68a14c497386f03",
     "vectors/holder-auth.json": "d7e7040693da0be8e10beb114d5a23253ca5b4b6ab18f1386324ea3980539efb",
     "vectors/legacy-classical-selection.json": "0611859280b4598f2dadbaf87c9f0084f79e1554d99dd210e7e4a9d622234b1f",
     "vectors/pqc-base.json": "15ff52856759d48ef1bd8e22c5cf5cccd2f3a866fd98fa893e65489dc92ab48e",
