@@ -1,4 +1,4 @@
-import { createHash, createPublicKey, randomBytes, sign, verify, X509Certificate } from 'node:crypto';
+import { createHash, createPublicKey, KeyObject, randomBytes, sign, verify, X509Certificate } from 'node:crypto';
 import { Tag, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
 import { documentKeyRelation } from './key-relation.mjs';
 import { requireThat, validationFailure } from './errors.mjs';
@@ -13,6 +13,7 @@ export const CREDENTIAL_HEADER = 'urn:certconcord:credential:1';
 const hash = (algorithm, bytes) => createHash(algorithm).update(bytes).digest();
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
 const spki = key => key.export({ format: 'der', type: 'spki' });
+const nativeKeyEquals = KeyObject.prototype.equals;
 const copy = value => decode(encode(value));
 const text = value => typeof value === 'string' && value.length > 0;
 const integer = value => Number.isSafeInteger(value) && value >= 0;
@@ -287,16 +288,22 @@ export function verifyDocumentSignature(signature, document, options) {
   return { tbs: received.tbs, signature: Buffer.from(value[3]) };
 }
 export function verifySignedDocument(document, signature, credential, options) {
-  requireThat(Buffer.isBuffer(document) && Buffer.isBuffer(signature) && Buffer.isBuffer(credential), 'MDOC_DOCUMENT_BYTES');
+  let byteInputs;
+  try { byteInputs = Buffer.isBuffer(document) && Buffer.isBuffer(signature) && Buffer.isBuffer(credential); }
+  catch { throw new Error('Untrusted document input type could not be checked'); }
+  requireThat(byteInputs, 'MDOC_DOCUMENT_BYTES');
   let retainedDocument, retainedSignature, retainedCredential, retainedOptions;
   try {
     retainedDocument = Buffer.from(document);
     retainedSignature = Buffer.from(signature);
     retainedCredential = Buffer.from(credential);
-    retainedOptions = { ...options, certificate: Buffer.from(options.certificate),
-      issuerKey: options.issuerKey === undefined ? undefined : createPublicKey({
-        key: options.issuerKey.export({ format: 'der', type: 'spki' }), type: 'spki', format: 'der',
-      }),
+    const configuredIssuerKey = options.issuerKey;
+    const issuerKey = configuredIssuerKey === undefined ? undefined : createPublicKey({
+      key: configuredIssuerKey.export({ format: 'der', type: 'spki' }), type: 'spki', format: 'der',
+    });
+    if (issuerKey && !nativeKeyEquals.call(configuredIssuerKey, issuerKey))
+      throw new Error('Configured issuer key differs from exported key');
+    retainedOptions = { ...options, certificate: Buffer.from(options.certificate), issuerKey,
       trustAnchorCertificate: options.trustAnchorCertificate === undefined ? undefined : Buffer.from(options.trustAnchorCertificate),
       requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()),
       statusEvidence: options.statusEvidence === undefined ? undefined : copy(options.statusEvidence) };

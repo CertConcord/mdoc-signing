@@ -95,6 +95,38 @@
       }
     },
     {
+      "id": "evaluator-issuer-key-export-override",
+      "fault": "issuer-key-export-override",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_MALFORMED"
+      }
+    },
+    {
+      "id": "evaluator-issuer-key-native-mismatch",
+      "fault": "issuer-key-native-mismatch",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_ISSUER_KEY"
+      }
+    },
+    {
+      "id": "evaluator-input-brand-helper",
+      "fault": "input-brand-helper",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_MALFORMED"
+      }
+    },
+    {
+      "id": "evaluator-input-byte-type",
+      "fault": "input-byte-type",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_DOCUMENT_BYTES"
+      }
+    },
+    {
       "id": "evaluator-relation-device-key",
       "fault": "relation-device",
       "expected": {

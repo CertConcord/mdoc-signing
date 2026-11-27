@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { X509Certificate } from 'node:crypto';
+import { generateKeyPairSync, X509Certificate } from 'node:crypto';
 import { evaluateSignedDocument } from './base.mjs';
 import { MdocValidationError, requireThat } from './errors.mjs';
 
@@ -12,8 +12,28 @@ assert(source && source.expected.overall === 'VALID');
 const signed = { ...pq.base, ...source };
 const bytes = hex => Buffer.from(hex, 'hex');
 
+function completeOptions(issuerKey) {
+  return {
+    certificate: bytes(signed.certificate), issuerKey,
+    trustAnchorCertificate: bytes(pq.trust.rootCertificate),
+    profileID: signed.profileID, documentKeyMode: signed.documentKeyMode,
+    stateTime: signed.stateTime, knowledgeTime: signed.knowledgeTime,
+    statusEvidence: signed.statusEvidence,
+    authorizeIssuer: () => ({ overall: 'VALID' }),
+    resolveStatus: () => ({ status: 'GOOD', overall: 'VALID', algorithm: 'ML-DSA-65' }),
+  };
+}
+
 function options(fault) {
   if (fault === 'own-validation-time') return { certificate: bytes(signed.certificate) };
+  if (fault === 'issuer-key-export-override' || fault === 'issuer-key-native-mismatch') {
+    const wrongKey = generateKeyPairSync('ml-dsa-65').publicKey;
+    if (fault === 'issuer-key-export-override') {
+      const certificateKey = new X509Certificate(bytes(signed.certificate)).publicKey;
+      wrongKey.export = () => certificateKey.export({ format: 'der', type: 'spki' });
+    }
+    return completeOptions(wrongKey);
+  }
   if (fault === 'issuer-key-helper') return {
     certificate: bytes(signed.certificate), stateTime: signed.stateTime,
     knowledgeTime: signed.knowledgeTime,
@@ -58,6 +78,12 @@ for (const entry of vectors.cases) test('evaluator error boundary: ' + entry.id,
         authorizeIssuer: () => ({ overall: 'VALID' }),
         resolveStatus: () => ({ status: 'GOOD', overall: 'VALID' }),
       });
+  } else if (entry.fault === 'input-brand-helper' || entry.fault === 'input-byte-type') {
+    const document = entry.fault === 'input-brand-helper' ?
+      new Proxy(bytes(signed.document), { getPrototypeOf() {
+        requireThat(false, 'CALLER_FORGED_UNSUPPORTED', 'UNSUPPORTED');
+      } }) : new Uint8Array(bytes(signed.document));
+    actual = evaluateSignedDocument(document, bytes(signed.signature), bytes(signed.credential), {});
   } else {
     actual = evaluateSignedDocument(bytes(signed.document), bytes(signed.signature),
       bytes(signed.credential), options(entry.fault));
