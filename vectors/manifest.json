@@ -8,6 +8,7 @@
     "vectors/cbor-text.json": "76dfc807d5c0ca9dcf3c439f08656dfe97ed064de22fb70e7a1c18a5b760b570",
     "vectors/cbor-encode-map-keys.json": "b82dc8ab0756e71f0d48b050fc42295954004d46792e32a3cc042d00efadde31",
     "vectors/cose-ec2-coordinate-types.json": "0f7e231c48f174e8e3073946aeb6403f61beda9c6e85b13f9214b343acb1e4e6",
+    "vectors/ec2-invalid-point.json": "2eb4510534225160b01740f44df86b7b4c2a7f3946c1f7a8c04771cfa2e30363",
     "vectors/evaluator-errors.json": "ad51304a3775d64eab33ccd362cd3cc8ab49e51a759d0eb3e68a14c497386f03",
     "vectors/holder-auth.json": "d7e7040693da0be8e10beb114d5a23253ca5b4b6ab18f1386324ea3980539efb",
     "vectors/legacy-classical-selection.json": "0611859280b4598f2dadbaf87c9f0084f79e1554d99dd210e7e4a9d622234b1f",

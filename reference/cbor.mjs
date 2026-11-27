@@ -189,6 +189,7 @@ export function coseJWK(key) {
   requireThat(types.isUint8Array(x) && types.isUint8Array(y), 'COSE_KEY');
   const jwk = { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) };
   coseKey(jwk);
-  createPublicKey({ key: jwk, format: 'jwk' });
+  try { createPublicKey({ key: jwk, format: 'jwk' }); }
+  catch { requireThat(false, 'COSE_POINT'); }
   return jwk;
 }
