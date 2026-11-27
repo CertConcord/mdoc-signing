@@ -79,6 +79,22 @@
       }
     },
     {
+      "id": "evaluator-validation-helper-from-issuer-key",
+      "fault": "issuer-key-helper",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_MALFORMED"
+      }
+    },
+    {
+      "id": "evaluator-validation-helper-from-status-evidence",
+      "fault": "status-evidence-helper",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_MALFORMED"
+      }
+    },
+    {
       "id": "evaluator-relation-device-key",
       "fault": "relation-device",
       "expected": {

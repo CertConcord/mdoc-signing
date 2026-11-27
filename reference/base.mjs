@@ -294,8 +294,12 @@ export function verifySignedDocument(document, signature, credential, options) {
     retainedSignature = Buffer.from(signature);
     retainedCredential = Buffer.from(credential);
     retainedOptions = { ...options, certificate: Buffer.from(options.certificate),
+      issuerKey: options.issuerKey === undefined ? undefined : createPublicKey({
+        key: options.issuerKey.export({ format: 'der', type: 'spki' }), type: 'spki', format: 'der',
+      }),
       trustAnchorCertificate: options.trustAnchorCertificate === undefined ? undefined : Buffer.from(options.trustAnchorCertificate),
-      requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()) };
+      requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()),
+      statusEvidence: options.statusEvidence === undefined ? undefined : copy(options.statusEvidence) };
   } catch { throw new Error('Untrusted document inputs could not be copied'); }
   const validated = verifySigningCredential(retainedCredential, retainedOptions);
   const documentSignature = verifyDocumentSignature(retainedSignature, retainedDocument, { credential: validated.credential, publicKey: validated.publicKey, requiredProtectedHeaders: retainedOptions.requiredProtectedHeaders });

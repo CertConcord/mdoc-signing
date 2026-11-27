@@ -14,6 +14,20 @@ const bytes = hex => Buffer.from(hex, 'hex');
 
 function options(fault) {
   if (fault === 'own-validation-time') return { certificate: bytes(signed.certificate) };
+  if (fault === 'issuer-key-helper') return {
+    certificate: bytes(signed.certificate), stateTime: signed.stateTime,
+    knowledgeTime: signed.knowledgeTime,
+    issuerKey: { get asymmetricKeyType() {
+      requireThat(false, 'CALLER_FORGED_INDETERMINATE', 'INDETERMINATE');
+    } },
+  };
+  if (fault === 'status-evidence-helper') return {
+    certificate: bytes(signed.certificate), stateTime: signed.stateTime,
+    knowledgeTime: signed.knowledgeTime,
+    statusEvidence: { get injected() {
+      requireThat(false, 'CALLER_FORGED_UNSUPPORTED', 'UNSUPPORTED');
+    } },
+  };
   const error = fault === 'foreign-valid' ? Object.assign(new Error('foreign failure'),
     { overall: 'VALID', code: 'FORGED_SUCCESS' }) :
     fault === 'validation-valid' ? new MdocValidationError('FORGED_SUCCESS', 'VALID') :
