@@ -34,7 +34,7 @@ export function prepareHolderAuthentication(sessionTranscript, { holderPublicKey
   profileID = BASE_PROFILE, allowLegacyClassical = false } = {}) {
   const algorithm = holderAlgorithm(holderPublicKey);
   requireThat(algorithm, 'MDOC_HOLDER_KEY');
-  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical && isLegacyClassicalProfile(profileID)),
+  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
     'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
   requireThat(profileID === BASE_PROFILE ? algorithm === -49 : algorithm === -7,
     profileID === BASE_PROFILE ? 'MDOC_HOLDER_PQC_REQUIRED' : 'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
@@ -57,7 +57,7 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   requireThat(Buffer.isBuffer(deviceSigned) && Buffer.isBuffer(credential), 'MDOC_HOLDER_BYTES');
   const facts = verifyIssuerSigned(Buffer.from(credential), { issuerKey, certificate, at, docType });
   requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
-  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical && isLegacyClassicalProfile(profileID)),
+  requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
     'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
   if (profileID === BASE_PROFILE) requireThat(issuerKey?.asymmetricKeyType === 'ml-dsa-65' &&
     facts.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_HOLDER_PQC_REQUIRED');
