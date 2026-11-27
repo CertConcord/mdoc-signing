@@ -178,10 +178,13 @@ export function issueIssuerSigned({ namespaces, holderJWK, certificate, privateK
 
 function externalDecision(callback, input, code) {
   requireThat(typeof callback === 'function', code + '_MISSING', 'INDETERMINATE');
-  let value;
-  try { value = callback(input); } catch { throw new MdocValidationError(code + '_UNAVAILABLE', 'INDETERMINATE'); }
-  requireThat(value && typeof value.then !== 'function' && ['VALID', 'INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(value.overall), code + '_RESULT');
-  return { ...value };
+  let snapshot;
+  try {
+    const value = callback(input);
+    snapshot = value && typeof value.then !== 'function' ? { ...value } : undefined;
+  } catch { throw new MdocValidationError(code + '_UNAVAILABLE', 'INDETERMINATE'); }
+  requireThat(snapshot && ['VALID', 'INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(snapshot.overall), code + '_RESULT');
+  return snapshot;
 }
 export function verifySigningCredential(credential, {
   issuerKey, certificate, docType = SIGNING_DOCTYPE, namespace = SIGNING_NAMESPACE,
@@ -240,7 +243,8 @@ export function verifySigningCredential(credential, {
   requireThat(authorization.overall === 'VALID', 'MDOC_ISSUER_AUTHORIZATION', authorization.overall);
   const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: Buffer.from(claims.get('credential_id')), certificate: Buffer.from(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
   const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID', STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE', UNKNOWN: 'INDETERMINATE', CONFLICTING: 'INDETERMINATE', UNSUPPORTED: 'UNSUPPORTED' };
-  requireThat(outcomes[decision.status] === decision.overall, 'MDOC_STATUS_RESULT');
+  requireThat(typeof decision.status === 'string' && Object.hasOwn(outcomes, decision.status) &&
+    outcomes[decision.status] === decision.overall, 'MDOC_STATUS_RESULT');
   if (pqProfile && decision.status === 'GOOD') requireThat(decision.algorithm === 'ML-DSA-65', 'MDOC_PQC_STATUS_REQUIRED');
   requireThat(decision.overall === 'VALID', 'MDOC_STATUS_' + decision.status, decision.overall);
   return { ...validated, overall: 'VALID', signingClaims: claims, publicKey, documentKeyMode, status: decision,

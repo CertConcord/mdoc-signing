@@ -94,6 +94,30 @@
       }
     },
     {
+      "id": "pqc-reject-array-status-good",
+      "policy": "array-status-good-no-algorithm",
+      "expected": {
+        "overall": "INVALID",
+        "reason": "MDOC_STATUS_RESULT"
+      }
+    },
+    {
+      "id": "pqc-status-result-status-read-error",
+      "policy": "throwing-status-result-status",
+      "expected": {
+        "overall": "INDETERMINATE",
+        "reason": "MDOC_STATUS_UNAVAILABLE"
+      }
+    },
+    {
+      "id": "pqc-status-result-then-read-error",
+      "policy": "throwing-status-result-then",
+      "expected": {
+        "overall": "INDETERMINATE",
+        "reason": "MDOC_STATUS_UNAVAILABLE"
+      }
+    },
+    {
       "id": "pqc-reject-classic-status-token",
       "statusEvidence": "eyJhbGciOiJFUzI1NiIsInR5cCI6InN0YXR1c2xpc3Qrand0In0.eyJpc3MiOiJodHRwczovL2lzc3Vlci5leGFtcGxlL3BxL3N0YXR1cy8xIiwic3ViIjoiaHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZS9wcS9zdGF0dXMvMSIsImlhdCI6MTc5NTY2NDk4OCwiZXhwIjoxNzk1NjY1Mjg4LCJ0dGwiOjMwMCwic3RhdHVzX2xpc3QiOnsiYml0cyI6MSwibHN0IjoiZUp4allFQUZBQUFRQUFFIn19.lSS_O1v95RDAkaVuHa48QRZejYtbskx_SFCXtqM8kPzhGNMYorjuQgqmbTIUmOIvzeDgQWpC4uDlaat1Xa8LiA",
       "classicalStatusPublicKey": "3059301306072a8648ce3d020106082a8648ce3d030107034200045025862afdc5be74acfd9b0b433af3d11ed55815e89945fa828b0271b2488c88ee463e88981ccf448a3852de764bbd3cb9da09f0c9083c64c5857fa5720903fe",
