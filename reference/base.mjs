@@ -266,8 +266,16 @@ function signatureParameters(document, { credential, publicKey, requiredProtecte
   requireThat(isNativeBuffer(document) && isNativeBuffer(credential), 'MDOC_DOCUMENT_BYTES');
   const algorithm = { 'ml-dsa-65': -49, 'ml-dsa-87': -50, ec: -7 }[publicKey?.asymmetricKeyType];
   requireThat(algorithm && (algorithm !== -7 || p256(publicKey)), 'MDOC_DOCUMENT_ALGORITHM', 'UNSUPPORTED');
-  requireThat(requiredProtectedHeaders instanceof Map && [...requiredProtectedHeaders.keys()].every(key => (text(key) || Number.isSafeInteger(key)) && ![1, 2, 3, CREDENTIAL_HEADER].includes(key)), 'MDOC_REQUIRED_HEADERS');
-  const extensions = copy(requiredProtectedHeaders);
+  requireThat(requiredProtectedHeaders instanceof Map, 'MDOC_REQUIRED_HEADERS');
+  // Select one map before validating labels, then encode that same selection.
+  const selectedEntries = [...requiredProtectedHeaders];
+  const selectedHeaders = new Map(selectedEntries);
+  requireThat(selectedHeaders.size === selectedEntries.length, 'MDOC_REQUIRED_HEADERS');
+  const eligibleLabel = key => text(key) || Number.isSafeInteger(key) ||
+    (typeof key === 'bigint' && key >= -0x10000000000000000n && key <= 0xffffffffffffffffn);
+  requireThat([...selectedHeaders.keys()].every(key => eligibleLabel(key) &&
+    ![1, 2, 3, 1n, 2n, 3n, CREDENTIAL_HEADER].includes(key)), 'MDOC_REQUIRED_HEADERS');
+  const extensions = copy(selectedHeaders);
   const headers = new Map([[1, algorithm], [2, [CREDENTIAL_HEADER, ...extensions.keys()]], [3, 'application/certconcord-mdoc-document'], [CREDENTIAL_HEADER, hash('sha512', credential)], ...extensions]);
   const protectedBytes = encode(headers), payload = nativeUint8Copy(document);
   return { algorithm, protectedBytes, payload,
