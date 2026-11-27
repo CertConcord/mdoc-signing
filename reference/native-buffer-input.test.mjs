@@ -62,6 +62,19 @@ test('CBOR decoding uses native byte-view contents instead of valueOf', () => {
   assert.notEqual(decoded.buffer, encoded.buffer);
 });
 
+test('CBOR decoder applies its byte limit before allocating an owned copy', () => {
+  assert.equal(decode(Buffer.from([0x18, 0x18]), { maxBytes: 2 }), 24);
+  const input = Buffer.from([1, 2, 3]), originalAlloc = Buffer.alloc;
+  let copiedOversizeInput = false;
+  Buffer.alloc = function (size, ...rest) {
+    if (size === input.length) copiedOversizeInput = true;
+    return originalAlloc(size, ...rest);
+  };
+  try { assert.throws(() => decode(input, { maxBytes: 2 }), { code: 'CBOR_SIZE' }); }
+  finally { Buffer.alloc = originalAlloc; }
+  assert.equal(copiedOversizeInput, false);
+});
+
 test('complete PQ evaluator binds all byte inputs to their presented contents', () => {
   const input = selectedInputs();
   const accepted = evaluateSignedDocument(input.document, input.signature, input.credential, input.options);

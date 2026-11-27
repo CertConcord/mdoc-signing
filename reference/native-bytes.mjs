@@ -9,10 +9,14 @@ const uint8Length = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteLength'
 
 export const isNativeBuffer = value => Buffer.isBuffer(value) && types.isUint8Array(value);
 
-export const nativeUint8Copy = value => {
+export const intrinsicUint8View = value => {
   if (!types.isUint8Array(value)) throw new TypeError('Expected a native Uint8Array');
-  const source = new Uint8Array(
+  return new Uint8Array(
     uint8Buffer.call(value), uint8Offset.call(value), uint8Length.call(value));
+};
+
+export const nativeUint8Copy = value => {
+  const source = intrinsicUint8View(value);
   const bytes = Buffer.alloc(source.byteLength);
   Uint8Array.prototype.set.call(bytes, source);
   return bytes;

@@ -1,7 +1,7 @@
 import { createPublicKey } from 'node:crypto';
 import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
-import { nativeUint8Copy } from './native-bytes.mjs';
+import { intrinsicUint8View, nativeUint8Copy } from './native-bytes.mjs';
 const b64u = bytes => nativeUint8Copy(bytes).toString('base64url');
 const unb64u = value => {
   requireThat(typeof value === 'string' && /^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
@@ -71,8 +71,9 @@ export function decode(
   { maxBytes = 8 * 1024 * 1024, maxItems = 100000, allowTrailing = false } = {},
 ) {
   requireThat(types.isUint8Array(input), 'CBOR_TYPE');
-  const b = nativeUint8Copy(input);
-  requireThat(b.length <= maxBytes, 'CBOR_SIZE');
+  const view = intrinsicUint8View(input);
+  requireThat(view.byteLength <= maxBytes, 'CBOR_SIZE');
+  const b = nativeUint8Copy(view);
   let p = 0,
     items = 0;
   function read(depth) {
