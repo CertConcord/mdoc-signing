@@ -1,6 +1,6 @@
 import { createHash, createPublicKey, KeyObject, randomBytes, sign, verify, X509Certificate } from 'node:crypto';
 import { types } from 'node:util';
-import { Tag, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
+import { Tag, boundedCborView, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
 import { documentKeyRelation } from './key-relation.mjs';
 import { requireThat, validationFailure } from './errors.mjs';
 import { isNativeBuffer, nativeUint8Copy } from './native-bytes.mjs';
@@ -87,7 +87,7 @@ function issuerAuth(value) {
 }
 
 function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNING_DOCTYPE, allowPartial = false }, at) {
-  const bytes = isNativeBuffer(credential) ? nativeUint8Copy(credential) : encode(credential);
+  const bytes = isNativeBuffer(credential) ? nativeUint8Copy(boundedCborView(credential)) : encode(credential);
   const is = decode(bytes);
   fields(is, ['nameSpaces', 'issuerAuth']);
   requireThat(types.isUint8Array(certificate), 'MDOC_CERTIFICATE');
@@ -304,11 +304,12 @@ export function verifySignedDocument(document, signature, credential, options) {
   try { byteInputs = isNativeBuffer(document) && isNativeBuffer(signature) && isNativeBuffer(credential); }
   catch { throw new Error('Untrusted document input type could not be checked'); }
   requireThat(byteInputs, 'MDOC_DOCUMENT_BYTES');
+  const signatureView = boundedCborView(signature), credentialView = boundedCborView(credential);
   let retainedDocument, retainedSignature, retainedCredential, retainedOptions;
   try {
     retainedDocument = nativeUint8Copy(document);
-    retainedSignature = nativeUint8Copy(signature);
-    retainedCredential = nativeUint8Copy(credential);
+    retainedSignature = nativeUint8Copy(signatureView);
+    retainedCredential = nativeUint8Copy(credentialView);
     // Caller contract: trusted configuration supplies a genuine native public KeyObject.
     const { issuerKey: configuredIssuerKey, certificate: configuredCertificate,
       trustAnchorCertificate: configuredAnchor, requiredProtectedHeaders: configuredHeaders,

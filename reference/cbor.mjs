@@ -19,6 +19,13 @@ export class Tag {
   }
 }
 export const embedded = (value) => new Tag(24, encode(value));
+export const DEFAULT_CBOR_MAX_BYTES = 8 * 1024 * 1024;
+export function boundedCborView(input, maxBytes = DEFAULT_CBOR_MAX_BYTES) {
+  requireThat(types.isUint8Array(input), 'CBOR_TYPE');
+  const view = intrinsicUint8View(input);
+  requireThat(view.byteLength <= maxBytes, 'CBOR_SIZE');
+  return view;
+}
 function head(m, v) {
   let n = BigInt(v);
   requireThat(n >= 0n && n <= 0xffffffffffffffffn, 'CBOR_RANGE');
@@ -68,12 +75,9 @@ export function encode(v, depth = 0) {
 }
 export function decode(
   input,
-  { maxBytes = 8 * 1024 * 1024, maxItems = 100000, allowTrailing = false } = {},
+  { maxBytes = DEFAULT_CBOR_MAX_BYTES, maxItems = 100000, allowTrailing = false } = {},
 ) {
-  requireThat(types.isUint8Array(input), 'CBOR_TYPE');
-  const view = intrinsicUint8View(input);
-  requireThat(view.byteLength <= maxBytes, 'CBOR_SIZE');
-  const b = nativeUint8Copy(view);
+  const b = nativeUint8Copy(boundedCborView(input, maxBytes));
   let p = 0,
     items = 0;
   function read(depth) {

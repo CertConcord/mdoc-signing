@@ -5,7 +5,7 @@ import { verify, X509Certificate } from 'node:crypto';
 import { types } from 'node:util';
 import { runInNewContext } from 'node:vm';
 import { evaluateSignedDocument, inspectIssuerSigned, prepareDocumentSignature,
-  verifyDocumentSignature } from './base.mjs';
+  verifyDocumentSignature, verifyIssuerSigned } from './base.mjs';
 import { prepareHolderAuthentication, verifyHolderAuthentication } from './holder-auth.mjs';
 import { decode } from './cbor.mjs';
 import { nativeUint8Copy } from './native-bytes.mjs';
@@ -45,6 +45,21 @@ const mutateSharedSourceDuringCopy = (source, work) => {
   };
   try { return { result: work(), mutated }; }
   finally { Uint8Array.prototype.set = originalSet; }
+};
+const oversizedCredential = Buffer.from(new ArrayBuffer(8 * 1024 * 1024 + 1));
+const observeOversizedCopy = work => {
+  const originalAlloc = Buffer.alloc;
+  let attempted = 0;
+  Buffer.alloc = function (size, ...rest) {
+    if (size === oversizedCredential.length) {
+      attempted++;
+      throw new Error('ALLOC_BEFORE_LIMIT');
+    }
+    return originalAlloc(size, ...rest);
+  };
+  try { return { result: work(), attempted }; }
+  catch (error) { return { error, attempted }; }
+  finally { Buffer.alloc = originalAlloc; }
 };
 
 test('CBOR decoding uses native byte-view contents instead of valueOf', () => {
@@ -256,4 +271,38 @@ test('holder finish packages only a DeviceSignature verified from its retained s
   assert.equal(attempt.mutated, true);
   assert.equal(error?.code, 'MDOC_HOLDER_SIGNATURE');
   assert.equal(packageBytes, undefined);
+});
+
+test('complete evaluator bounds CBOR credential and COSE signature before copying', () => {
+  const tiny = Buffer.from([1]);
+  for (const [signature, credential] of [[tiny, oversizedCredential],
+    [oversizedCredential, tiny]]) {
+    const observation = observeOversizedCopy(() =>
+      evaluateSignedDocument(tiny, signature, credential, {}));
+    assert.equal(observation.attempted, 0);
+    assert.deepEqual(observation.result, { overall: 'INVALID', reason: 'CBOR_SIZE' });
+  }
+});
+
+test('direct issuer verification bounds encoded credentials before copying', () => {
+  const observation = observeOversizedCopy(() => verifyIssuerSigned(oversizedCredential, { at: 1 }));
+  assert.equal(observation.attempted, 0);
+  assert.equal(observation.error?.code, 'CBOR_SIZE');
+});
+
+test('holder entry bounds DeviceSigned, credential and transcript before copying', () => {
+  const v = holder.base, certificate = bytes(v.certificate), credential = bytes(v.credential);
+  const options = { certificate, issuerKey: new X509Certificate(certificate).publicKey,
+    at: v.at, sessionTranscript: bytes(v.sessionTranscript) };
+  const facts = inspectIssuerSigned(credential, options);
+  for (const work of [
+    () => prepareHolderAuthentication(oversizedCredential,
+      { holderPublicKey: facts.holderPublicKey }),
+    () => verifyHolderAuthentication(bytes(v.deviceSigned), oversizedCredential, options),
+    () => verifyHolderAuthentication(oversizedCredential, credential, options),
+  ]) {
+    const observation = observeOversizedCopy(work);
+    assert.equal(observation.attempted, 0);
+    assert.equal(observation.error?.code, 'CBOR_SIZE');
+  }
 });
