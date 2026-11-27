@@ -25,3 +25,14 @@ for (const vector of vectors.cases) test('EC2 coordinate CBOR type: ' + vector.i
     assert.throws(() => coseJWK(key), { code: vector.expected.reason });
   }
 });
+
+const positiveWire = Buffer.from(vectors.cases.find(vector => vector.id === 'ec2-bstr-coordinates').wire, 'hex');
+for (const [name, useX, useY] of [
+  ['x', true, false], ['y', false, true], ['x and y', true, true],
+]) test('native Uint8Array EC2 coordinate: ' + name, () => {
+  const x = useX ? new Uint8Array(point.x) : point.x;
+  const y = useY ? new Uint8Array(point.y) : point.y;
+  const key = new Map([[1, 2], [-1, 1], [-2, x], [-3, y]]);
+  assert.deepEqual(encode(key), positiveWire);
+  assert.deepEqual(coseJWK(key), selected);
+});
