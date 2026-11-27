@@ -32,6 +32,8 @@ The [native byte input regression](reference/native-buffer-input.test.mjs) compo
 
 [PQ document map-order vectors](vectors/pqc-document-map-order.json) distinguish RFC 8949 core bytewise map-key ordering from the older length-first order using independently signed detached COSE headers. Both signatures have valid ML-DSA mathematics; only the selected exact header bytes pass this experimental document primitive.
 
+[Large integer document-header vectors](vectors/pqc-document-large-critical.json) use a synthetic application critical label above JavaScript's safe-number range. The public document primitive accepts that CBOR integer label when explicitly required, snapshots the selected extension map before checking it, and rejects changed values, labels or critical order after verifying the received ML-DSA mathematics. BigInt aliases of reserved algorithm, critical-list and content-type labels cannot override those fields. The fixture makes no IANA registration, issuer-admission or ISO mdoc suite claim.
+
 Run with Node.js 24.15 or later:
 
     npm run check
