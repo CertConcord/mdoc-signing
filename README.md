@@ -14,6 +14,8 @@ The base reference owns CBOR, ML-DSA issuerAuth/MSO and certificate-path checks,
 
 [PQ holder/CA key-role vectors](vectors/pqc-holder-ca-key-role.json) retain mathematically valid device and document signatures while rejecting a holder key reused from the selected root or intermediate CA path.
 
+[CBOR map-key encoder vectors](vectors/cbor-encode-map-keys.json) retain the bytes formerly emitted for duplicate integer labels and an unselected byte-string label, alongside valid distinct labels. The encoder now refuses inputs that its selected decoder would reject for those key violations.
+
 Run with Node.js 24.15 or later:
 
     npm run check
