@@ -695,6 +695,11 @@
     { "id": "pqc-issuer-canonical-protected", "overall": "VALID", "vector": "vectors/pqc-issuer-headers.json", "scope": "Low-level ML-DSA-65 issuer mathematics; no authority verdict." },
     { "id": "pqc-issuer-reordered-protected-signed", "overall": "VALID", "vector": "vectors/pqc-issuer-headers.json", "scope": "Same protected parameters and payload with a separately valid signature over received reversed-order bytes." },
     { "id": "pqc-issuer-reordered-protected-old-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-issuer-headers.json", "scope": "Reordered protected bytes with the canonical signature are mathematically invalid." },
-    { "id": "pqc-issuer-canonical-protected-reordered-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-issuer-headers.json", "scope": "Canonical protected bytes with the reversed-order signature are mathematically invalid." }
+    { "id": "pqc-issuer-canonical-protected-reordered-signature", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/pqc-issuer-headers.json", "scope": "Canonical protected bytes with the reversed-order signature are mathematically invalid." },
+    { "id": "encode-integer-alias-positive", "overall": "INVALID", "reason": "CBOR_DUPLICATE", "vector": "vectors/cbor-encode-map-keys.json", "scope": "A safe-integer number and equal bigint formerly emitted the same CBOR map label twice." },
+    { "id": "encode-integer-alias-negative", "overall": "INVALID", "reason": "CBOR_DUPLICATE", "vector": "vectors/cbor-encode-map-keys.json", "scope": "The negative form of an equal number and bigint map label is also refused." },
+    { "id": "encode-byte-string-key", "overall": "INVALID", "reason": "CBOR_MAP_KEY", "vector": "vectors/cbor-encode-map-keys.json", "scope": "The encoder refuses a byte-string map label that the selected decoder rejects." },
+    { "id": "encode-distinct-integer-text-keys", "overall": "VALID", "vector": "vectors/cbor-encode-map-keys.json", "scope": "An integer and a text label with the same visible character remain distinct." },
+    { "id": "encode-distinct-integer-bigint-keys", "overall": "VALID", "vector": "vectors/cbor-encode-map-keys.json", "scope": "Distinct number and large bigint integer labels remain valid." }
   ]
 }

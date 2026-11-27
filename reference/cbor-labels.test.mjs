@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { decode, encode } from './cbor.mjs';
+
+const keyVectors = JSON.parse(readFileSync(new URL('../vectors/cbor-encode-map-keys.json', import.meta.url)));
+const key = entry => ({ number: () => entry.key, bigint: () => BigInt(entry.key),
+  text: () => entry.key, bytes: () => Buffer.from(entry.key, 'hex') })[entry.keyType]();
+for (const vector of keyVectors.cases) test('selected CBOR encoder map key: ' + vector.id, () => {
+  const input = new Map(vector.entries.map(entry => [key(entry), entry.value]));
+  if (vector.expected.overall === 'INVALID') {
+    assert.throws(() => decode(Buffer.from(vector.oldWire, 'hex')), { code: vector.expected.reason });
+    assert.throws(() => encode(input), { code: vector.expected.reason });
+  } else {
+    const wire = Buffer.from(vector.wire, 'hex');
+    assert.deepEqual(encode(input), wire);
+    assert.deepEqual(encode(decode(wire)), wire);
+  }
+});
 
 for (const [name, input, normalized, wire] of [
   ['maximum positive integer', 0xffffffffffffffffn, 0xffffffffffffffffn, '1bffffffffffffffff'],

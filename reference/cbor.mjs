@@ -51,9 +51,14 @@ export function encode(v, depth = 0) {
     'CBOR_TYPE',
   );
   const entries = [...(v instanceof Map ? v.entries() : Object.entries(v))]
-    .map(([k, x]) => [e(k), e(x)])
+    .map(([k, x]) => {
+      requireThat(typeof k === 'string' || Number.isSafeInteger(k) || typeof k === 'bigint', 'CBOR_MAP_KEY');
+      return [e(k), x];
+    })
     .sort((a, b) => Buffer.compare(a[0], b[0]));
-  return Buffer.concat([head(5, entries.length), ...entries.flat()]);
+  for (let i = 1; i < entries.length; i++)
+    requireThat(!entries[i - 1][0].equals(entries[i][0]), 'CBOR_DUPLICATE');
+  return Buffer.concat([head(5, entries.length), ...entries.flatMap(([k, x]) => [k, e(x)])]);
 }
 export function decode(
   input,

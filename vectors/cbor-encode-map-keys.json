@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "encode-integer-alias-positive",
+      "entries": [
+        { "keyType": "number", "key": 1, "value": true },
+        { "keyType": "bigint", "key": "1", "value": false }
+      ],
+      "oldWire": "a201f501f4",
+      "expected": { "overall": "INVALID", "reason": "CBOR_DUPLICATE" }
+    },
+    {
+      "id": "encode-integer-alias-negative",
+      "entries": [
+        { "keyType": "number", "key": -1, "value": true },
+        { "keyType": "bigint", "key": "-1", "value": false }
+      ],
+      "oldWire": "a220f520f4",
+      "expected": { "overall": "INVALID", "reason": "CBOR_DUPLICATE" }
+    },
+    {
+      "id": "encode-byte-string-key",
+      "entries": [
+        { "keyType": "bytes", "key": "01", "value": true }
+      ],
+      "oldWire": "a14101f5",
+      "expected": { "overall": "INVALID", "reason": "CBOR_MAP_KEY" }
+    },
+    {
+      "id": "encode-distinct-integer-text-keys",
+      "entries": [
+        { "keyType": "number", "key": 1, "value": true },
+        { "keyType": "text", "key": "1", "value": false }
+      ],
+      "wire": "a201f56131f4",
+      "expected": { "overall": "VALID" }
+    },
+    {
+      "id": "encode-distinct-integer-bigint-keys",
+      "entries": [
+        { "keyType": "number", "key": 1, "value": true },
+        { "keyType": "bigint", "key": "9007199254740992", "value": false }
+      ],
+      "wire": "a201f51b0020000000000000f4",
+      "expected": { "overall": "VALID" }
+    }
+  ]
+}
