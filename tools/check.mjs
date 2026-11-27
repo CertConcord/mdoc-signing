@@ -31,9 +31,15 @@ for(const entry of cases) {
   assert.equal(entry.reason,vector.expected.reason,entry.id);
   covered.add(key);
 }
+const seenVectorIds=new Set();
 for(const path of Object.keys(manifest)) {
   const vectors=json(path).cases;
-  if(vectors) for(const vector of vectors) assert(covered.has(path+'\0'+vector.id),path+': '+vector.id);
+  if(vectors) for(const vector of vectors) {
+    const key=path+'\0'+vector.id;
+    assert(!seenVectorIds.has(key),'duplicate vector ID: '+path+': '+vector.id);
+    seenVectorIds.add(key);
+    assert(covered.has(key),path+': '+vector.id);
+  }
 }
 for(const entry of readdirSync(join(root,'reference')).filter(name=>name.endsWith('.mjs'))) {
   const source=readFileSync(join(root,'reference',entry),'utf8');
