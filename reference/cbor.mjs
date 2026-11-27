@@ -1,13 +1,13 @@
 import { createPublicKey } from 'node:crypto';
 import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
-const b64u = bytes => Buffer.from(bytes).toString('base64url');
 const uint8Prototype = Object.getPrototypeOf(Uint8Array.prototype);
 const uint8Buffer = Object.getOwnPropertyDescriptor(uint8Prototype, 'buffer').get;
 const uint8Offset = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteOffset').get;
 const uint8Length = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteLength').get;
 const nativeUint8Copy = value => Buffer.from(new Uint8Array(
   uint8Buffer.call(value), uint8Offset.call(value), uint8Length.call(value)));
+const b64u = bytes => nativeUint8Copy(bytes).toString('base64url');
 const unb64u = value => {
   requireThat(typeof value === 'string' && /^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
   const bytes = Buffer.from(value, 'base64url');
@@ -46,7 +46,10 @@ export function encode(v, depth = 0) {
   if (typeof v === 'number' || typeof v === 'bigint')
     return BigInt(v) >= 0n ? head(0, v) : head(1, -1n - BigInt(v));
   if (v instanceof Tag) return Buffer.concat([head(6, v.tag), e(v.value)]);
-  if (types.isUint8Array(v)) return Buffer.concat([head(2, v.length), v]);
+  if (types.isUint8Array(v)) {
+    const bytes = nativeUint8Copy(v);
+    return Buffer.concat([head(2, bytes.length), bytes]);
+  }
   if (typeof v === 'string') {
     const b = Buffer.from(v);
     requireThat(new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(b) === v, 'CBOR_TEXT');
