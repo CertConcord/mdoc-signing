@@ -12,6 +12,7 @@ export const isLegacyClassicalProfile = profileID => legacyProfiles.has(profileI
 export const CREDENTIAL_HEADER = 'urn:certconcord:credential:1';
 const hash = (algorithm, bytes) => createHash(algorithm).update(bytes).digest();
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
+const ownedBytes = value => { const bytes = Buffer.alloc(value.length); value.copy(bytes); return bytes; };
 const spki = key => key.export({ format: 'der', type: 'spki' });
 const nativeKeyEquals = KeyObject.prototype.equals;
 const copy = value => decode(encode(value));
@@ -59,7 +60,7 @@ function verifyPqcCertificatePath(chain, trustAnchorCertificate, at) {
       child.verify(parent.publicKey) && child.validFromDate.getTime() / 1000 <= at &&
       at < child.validToDate.getTime() / 1000 && (i === 0 ? !child.ca : child.ca), 'MDOC_PQC_TRUST_PATH');
   }
-  return { trustAnchorCertificate: Buffer.from(root.raw), path: certificates.map(value => Buffer.from(value.raw)) };
+  return { trustAnchorCertificate: ownedBytes(root.raw), path: certificates.map(value => ownedBytes(value.raw)) };
 }
 function issuerAuth(value) {
   requireThat(Array.isArray(value) && value.length === 4 && Buffer.isBuffer(value[0]) && value[1] instanceof Map && Buffer.isBuffer(value[2]) && Buffer.isBuffer(value[3]), 'MDOC_ISSUER_AUTH');
@@ -98,7 +99,9 @@ function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNI
   requireThat(algorithm === selectedAlgorithm, 'COSE_ALGORITHM_UNSUPPORTED', 'UNSUPPORTED');
   // Evaluate the selected signature over retained bytes before unimplemented critical or MSO
   // semantics. Unknown algorithms do not authorize guessing another suite's mathematics.
-  requireThat(auth.value[3].length === issuerSignatureLength(algorithm) && verify(issuerDigest(algorithm), encode(['Signature1', auth.value[0], Buffer.alloc(0), auth.value[2]]), issuerSignatureOptions(issuerKey, algorithm), auth.value[3]), 'COSE_SIGNATURE');
+  // Verify with the public key parsed from the pinned certificate. A caller-supplied
+  // key-like object can claim that key through export() while crypto.verify uses its key field.
+  requireThat(auth.value[3].length === issuerSignatureLength(algorithm) && verify(issuerDigest(algorithm), encode(['Signature1', auth.value[0], Buffer.alloc(0), auth.value[2]]), issuerSignatureOptions(ds.publicKey, algorithm), auth.value[3]), 'COSE_SIGNATURE');
   requireThat(!auth.critical, 'COSE_CRITICAL_UNSUPPORTED', 'UNSUPPORTED');
   const mso = unembed(decode(auth.value[2]));
   requireThat(mso instanceof Map && text(mso.get('version')), 'MDOC_CAPABILITY_STRUCTURE');
@@ -139,8 +142,12 @@ function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNI
   const holderJWK = coseJWK(get(keyInfo, 'deviceKey'));
   requireThat(get(keyInfo, 'deviceKey').size === (holderJWK.kty === 'AKP' ? 3 : 4), 'MDOC_DEVICE_KEY_FIELDS');
   const holderPublicKey = createPublicKey({ key: holderJWK, format: 'jwk' });
-  requireThat(!same(spki(issuerKey), spki(holderPublicKey)), 'MDOC_KEY_ROLE_COLLISION');
-  return { mso, claims, holderJWK, holderPublicKey, issuerSigned: is, credential: bytes, issuerAuthBytes: encode(auth.value), certificateBytes: Buffer.from(certificate), certificateChain: auth.certificates.map(value => Buffer.from(value)), certificateBound: auth.certificateBound, validity };
+  requireThat(!same(spki(ds.publicKey), spki(holderPublicKey)), 'MDOC_KEY_ROLE_COLLISION');
+  return { mso, claims, holderJWK, holderPublicKey, issuerAlgorithm: selectedAlgorithm,
+    issuerSigned: is, credential: bytes, issuerAuthBytes: encode(auth.value),
+    certificateBytes: ownedBytes(ds.certificate.raw),
+    certificateChain: auth.certificates.map(ownedBytes),
+    certificateBound: auth.certificateBound, validity };
 }
 
 // Original-byte mathematics and structure only, with no evaluation time or admission verdict.
@@ -205,9 +212,9 @@ export function verifySigningCredential(credential, {
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
   requireThat(pqProfile || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
-  if (pqProfile) requireThat(issuerAlgorithm(issuerKey) === -49 &&
+  if (pqProfile) requireThat(validated.issuerAlgorithm === -49 &&
     validated.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_PQC_AUTHENTICATION_REQUIRED');
-  else requireThat(issuerAlgorithm(issuerKey) === -7 && p256(validated.holderPublicKey),
+  else requireThat(validated.issuerAlgorithm === -7 && p256(validated.holderPublicKey),
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const pqPath = pqProfile ? verifyPqcCertificatePath(validated.certificateChain, trustAnchorCertificate, stateTime) : undefined;
   requireThat(Array.isArray(claims.get('allowed_purposes')) && claims.get('allowed_purposes').length === 1 && claims.get('allowed_purposes')[0] === 'DOCUMENT_SIGN', 'MDOC_PURPOSE');
@@ -237,12 +244,12 @@ export function verifySigningCredential(credential, {
   requireThat(uri.protocol === 'https:' && !uri.username && !uri.password && !uri.hash && uri.href === reference.get('uri') && integer(reference.get('idx')), 'MDOC_STATUS_REFERENCE');
   const common = { issuer: claims.get('issuer'), docType, namespace, profileID, documentKeyMode, purpose: 'DOCUMENT_SIGN',
     statusAlgorithm: pqProfile ? 'ML-DSA-65' : 'ES256', stateTime, knowledgeTime };
-  const authorization = externalDecision(authorizeIssuer, { ...common, certificate: Buffer.from(validated.certificateBytes),
-    certificateChain: validated.certificateChain.map(value => Buffer.from(value)),
-    trustAnchorCertificate: pqPath && Buffer.from(pqPath.trustAnchorCertificate),
-    credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
+  const authorization = externalDecision(authorizeIssuer, { ...common, certificate: ownedBytes(validated.certificateBytes),
+    certificateChain: validated.certificateChain.map(ownedBytes),
+    trustAnchorCertificate: pqPath && ownedBytes(pqPath.trustAnchorCertificate),
+    credentialID: ownedBytes(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
   requireThat(authorization.overall === 'VALID', 'MDOC_ISSUER_AUTHORIZATION', authorization.overall);
-  const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: Buffer.from(claims.get('credential_id')), certificate: Buffer.from(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
+  const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: ownedBytes(claims.get('credential_id')), certificate: ownedBytes(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
   const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID', STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE', UNKNOWN: 'INDETERMINATE', CONFLICTING: 'INDETERMINATE', UNSUPPORTED: 'UNSUPPORTED' };
   requireThat(typeof decision.status === 'string' && Object.hasOwn(outcomes, decision.status) &&
     outcomes[decision.status] === decision.overall, 'MDOC_STATUS_RESULT');
