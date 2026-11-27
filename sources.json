@@ -52,6 +52,14 @@
       "sha256": "86a1e8356096923bb9293b1582e69193eff724d8fabf7cfe94ef97bf104b3426",
       "bytes": 2697049,
       "license": "ISO copyright; reference only"
+    },
+    {
+      "id": "ianaCoseAlgorithms",
+      "url": "https://www.iana.org/assignments/cose/cose.txt",
+      "sha256": "faab79aa11b3cf4ece8f136b37fa50e678fe0a7c2a73e18799f3da04deb93179",
+      "bytes": 59140,
+      "retrievedAt": "2026-11-27T14:57:41.320Z",
+      "registryLastUpdated": "2026-11-13"
     }
   ],
   "reviewScope": [
@@ -62,6 +70,7 @@
     "RFC 9964 ML-DSA COSE AKP and JWS algorithms",
     "RFC 9881 ML-DSA X.509 signatures and public keys",
     "NIST FIPS 204 pure ML-DSA",
+    "IANA COSE Algorithms registry snapshot retrieved 2026-11-27",
     "public WG10 algorithm-suite boundary for issuerAuth and DeviceAuth"
   ],
   "publishedBaseline": {
