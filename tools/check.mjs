@@ -11,6 +11,13 @@ const cases=json('cases.json').cases;
 assert.equal(new Set(cases.map(x=>x.id)).size,cases.length);
 for(const s of json('sources.json').sources){assert(s.url.startsWith('https://'));assert(/^[a-f0-9]{64}$/.test(s.sha256));}
 const manifest=json('vectors/manifest.json').sha256;
+const actualVectors=readdirSync(join(root,'vectors'),{withFileTypes:true})
+  .filter(entry=>entry.name!=='manifest.json')
+  .map(entry=>{
+    assert(entry.isFile()&&entry.name.endsWith('.json'),'unexpected vector entry: '+entry.name);
+    return 'vectors/'+entry.name;
+  }).sort();
+assert.deepEqual(Object.keys(manifest).sort(),actualVectors,'vector manifest inventory');
 for(const [path,hash] of Object.entries(manifest)) {
   assert.equal(createHash('sha256').update(readFileSync(join(root,path))).digest('hex'),hash,path);
 }
