@@ -37,3 +37,34 @@ test('AKP pub rejects arrays, other views and short bytes', () => {
   assert.throws(() => coseJWK(withPub(new Uint8ClampedArray(pub))), { code: 'COSE_KEY' });
   assert.throws(() => coseJWK(withPub(pub.subarray(1))), { code: 'COSE_KEY' });
 });
+
+test('AKP pub is read once from a stable direct-call map', () => {
+  const key = withPub(new Uint8Array(pub));
+  let reads = 0;
+  key.get = label => {
+    if (label === -1) reads++;
+    return Map.prototype.get.call(key, label);
+  };
+  assert.deepEqual(coseJWK(key), selectedJWK);
+  assert.equal(reads, 1);
+});
+
+test('AKP pub uses the native bytes of an offset subview', () => {
+  const storage = new Uint8Array(pub.length + 6);
+  storage.fill(0x5a);
+  storage.set(pub, 3);
+  const bytes = storage.subarray(3, 3 + pub.length);
+  assert.equal(bytes.byteOffset, 3);
+  assert.deepEqual(encode(withPub(bytes)), selectedWire);
+  assert.deepEqual(coseJWK(withPub(bytes)), selectedJWK);
+
+  let conversions = 0;
+  Object.defineProperties(bytes, {
+    valueOf: { value() { conversions++; return Buffer.alloc(0); } },
+    buffer: { get() { throw Error('shadowed buffer'); } },
+    byteOffset: { get() { throw Error('shadowed offset'); } },
+    byteLength: { get() { throw Error('shadowed length'); } },
+  });
+  assert.deepEqual(coseJWK(withPub(bytes)), selectedJWK);
+  assert.equal(conversions, 0);
+});

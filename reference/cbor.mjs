@@ -2,6 +2,12 @@ import { createPublicKey } from 'node:crypto';
 import { types } from 'node:util';
 import { requireThat } from './errors.mjs';
 const b64u = bytes => Buffer.from(bytes).toString('base64url');
+const uint8Prototype = Object.getPrototypeOf(Uint8Array.prototype);
+const uint8Buffer = Object.getOwnPropertyDescriptor(uint8Prototype, 'buffer').get;
+const uint8Offset = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteOffset').get;
+const uint8Length = Object.getOwnPropertyDescriptor(uint8Prototype, 'byteLength').get;
+const nativeUint8Copy = value => Buffer.from(new Uint8Array(
+  uint8Buffer.call(value), uint8Offset.call(value), uint8Length.call(value)));
 const unb64u = value => {
   requireThat(typeof value === 'string' && /^[A-Za-z0-9_-]*$/.test(value), 'COSE_BASE64URL');
   const bytes = Buffer.from(value, 'base64url');
@@ -168,8 +174,9 @@ export function coseJWK(key) {
   if (get(key, 1) === 7) {
     const algorithm = get(key, 3);
     const name = { '-49': 'ML-DSA-65', '-50': 'ML-DSA-87' }[algorithm];
-    requireThat(name && key.size === 3 && types.isUint8Array(get(key, -1)) && !key.has(-2), 'COSE_KEY');
-    const jwk = { kty: 'AKP', alg: name, pub: b64u(get(key, -1)) };
+    const pub = get(key, -1);
+    requireThat(name && key.size === 3 && types.isUint8Array(pub) && !key.has(-2), 'COSE_KEY');
+    const jwk = { kty: 'AKP', alg: name, pub: nativeUint8Copy(pub).toString('base64url') };
     coseKey(jwk);
     return jwk;
   }
