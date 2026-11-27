@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createPublicKey } from 'node:crypto';
+import { createECDH, createPublicKey } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
 import { types } from 'node:util';
 import { coseJWK, decode, encode } from './cbor.mjs';
@@ -62,4 +62,25 @@ test('other byte views do not become EC2 coordinates', () => {
   const key = new Map([[1, 2], [-1, 1], [-2, wrong], [-3, point.y]]);
   assert.throws(() => coseJWK(key), { code: 'COSE_KEY' });
   assert.throws(() => encode(key), { code: 'CBOR_TYPE' });
+});
+
+test('EC2 direct conversion uses actual coordinate bytes despite shadowed valueOf', () => {
+  const other = createECDH('prime256v1');
+  other.setPrivateKey(Buffer.from([1]));
+  const otherPoint = other.getPublicKey(undefined, 'uncompressed');
+  const x = new Uint8Array(point.x), y = new Uint8Array(point.y);
+  x.valueOf = () => otherPoint.subarray(1, 33);
+  y.valueOf = () => otherPoint.subarray(33);
+  const key = new Map([[1, 2], [-1, 1], [-2, x], [-3, y]]);
+  assert.deepEqual(encode(key), positiveWire);
+  assert.deepEqual(coseJWK(key), selected);
+});
+
+test('EC2 native byte views use their actual length and offset', () => {
+  const storage = Uint8Array.from([9, ...point.x, 8]);
+  const x = new Uint8Array(storage.buffer, 1, 32);
+  Object.defineProperty(x, 'length', { value: 1 });
+  const key = new Map([[1, 2], [-1, 1], [-2, x], [-3, new Uint8Array(point.y)]]);
+  assert.deepEqual(encode(key), positiveWire);
+  assert.deepEqual(coseJWK(key), selected);
 });
