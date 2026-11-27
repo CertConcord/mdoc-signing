@@ -1,7 +1,7 @@
 import { createHash, createPublicKey, randomBytes, sign, verify, X509Certificate } from 'node:crypto';
 import { Tag, encode, decode, get, embedded, unembed, coseKey, coseJWK } from './cbor.mjs';
 import { documentKeyRelation } from './key-relation.mjs';
-import { MdocValidationError, requireThat } from './errors.mjs';
+import { requireThat, validationFailure } from './errors.mjs';
 
 export const SIGNING_DOCTYPE = 'org.certconcord.signer.1';
 export const SIGNING_NAMESPACE = SIGNING_DOCTYPE;
@@ -40,7 +40,7 @@ function certificateDetails(bytes) {
   requireThat(Buffer.isBuffer(bytes) && bytes.length > 0, 'MDOC_CERTIFICATE');
   let certificate;
   try { certificate = new X509Certificate(bytes); }
-  catch { throw new MdocValidationError('MDOC_CERTIFICATE'); }
+  catch { requireThat(false, 'MDOC_CERTIFICATE'); }
   requireThat(same(certificate.raw, bytes), 'MDOC_CERTIFICATE_ENCODING');
   return { certificate, publicKey: certificate.publicKey, notBefore: certificate.validFromDate.getTime() / 1000, notAfter: certificate.validToDate.getTime() / 1000 };
 }
@@ -182,7 +182,7 @@ function externalDecision(callback, input, code) {
   try {
     const value = callback(input);
     snapshot = value && typeof value.then !== 'function' ? { ...value } : undefined;
-  } catch { throw new MdocValidationError(code + '_UNAVAILABLE', 'INDETERMINATE'); }
+  } catch { requireThat(false, code + '_UNAVAILABLE', 'INDETERMINATE'); }
   requireThat(snapshot && ['VALID', 'INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(snapshot.overall), code + '_RESULT');
   return snapshot;
 }
@@ -216,7 +216,7 @@ export function verifySigningCredential(credential, {
   requireThat(Buffer.isBuffer(keyBytes), 'MDOC_DOCUMENT_KEY');
   let publicKey;
   try { publicKey = createPublicKey({ key: keyBytes, type: 'spki', format: 'der' }); }
-  catch { throw new MdocValidationError('MDOC_DOCUMENT_KEY'); }
+  catch { requireThat(false, 'MDOC_DOCUMENT_KEY'); }
   requireThat(same(spki(publicKey), keyBytes) && same(claims.get('signing_key_id'), hash('sha512', keyBytes)), 'MDOC_DOCUMENT_KEY_ID');
   documentKeyRelation(documentKeyMode, keyBytes, spki(validated.holderPublicKey));
   if (pqProfile) requireThat(['ml-dsa-65', 'ml-dsa-87'].includes(publicKey.asymmetricKeyType), 'MDOC_PQC_DOCUMENT_KEY_REQUIRED');
@@ -232,7 +232,7 @@ export function verifySigningCredential(credential, {
   const reference = status.get('status_list');
   fields(reference, ['uri', 'idx']);
   let uri;
-  try { uri = new URL(reference.get('uri')); } catch { throw new MdocValidationError('MDOC_STATUS_REFERENCE'); }
+  try { uri = new URL(reference.get('uri')); } catch { requireThat(false, 'MDOC_STATUS_REFERENCE'); }
   requireThat(uri.protocol === 'https:' && !uri.username && !uri.password && !uri.hash && uri.href === reference.get('uri') && integer(reference.get('idx')), 'MDOC_STATUS_REFERENCE');
   const common = { issuer: claims.get('issuer'), docType, namespace, profileID, documentKeyMode, purpose: 'DOCUMENT_SIGN',
     statusAlgorithm: pqProfile ? 'ML-DSA-65' : 'ES256', stateTime, knowledgeTime };
@@ -288,24 +288,20 @@ export function verifyDocumentSignature(signature, document, options) {
 }
 export function verifySignedDocument(document, signature, credential, options) {
   requireThat(Buffer.isBuffer(document) && Buffer.isBuffer(signature) && Buffer.isBuffer(credential), 'MDOC_DOCUMENT_BYTES');
-  const retainedDocument = Buffer.from(document), retainedSignature = Buffer.from(signature), retainedCredential = Buffer.from(credential);
-  const retainedOptions = { ...options, certificate: Buffer.from(options.certificate),
-    trustAnchorCertificate: options.trustAnchorCertificate === undefined ? undefined : Buffer.from(options.trustAnchorCertificate),
-    requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()) };
+  let retainedDocument, retainedSignature, retainedCredential, retainedOptions;
+  try {
+    retainedDocument = Buffer.from(document);
+    retainedSignature = Buffer.from(signature);
+    retainedCredential = Buffer.from(credential);
+    retainedOptions = { ...options, certificate: Buffer.from(options.certificate),
+      trustAnchorCertificate: options.trustAnchorCertificate === undefined ? undefined : Buffer.from(options.trustAnchorCertificate),
+      requiredProtectedHeaders: copy(options.requiredProtectedHeaders ?? new Map()) };
+  } catch { throw new Error('Untrusted document inputs could not be copied'); }
   const validated = verifySigningCredential(retainedCredential, retainedOptions);
   const documentSignature = verifyDocumentSignature(retainedSignature, retainedDocument, { credential: validated.credential, publicKey: validated.publicKey, requiredProtectedHeaders: retainedOptions.requiredProtectedHeaders });
   return { ...validated, documentSignature };
 }
 export function evaluateSignedDocument(...arguments_) {
   try { return verifySignedDocument(...arguments_); }
-  catch (error) {
-    try {
-      if (error instanceof MdocValidationError) {
-        const { overall, code } = error;
-        if (['INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(overall) &&
-          typeof code === 'string' && code.length > 0) return { overall, reason: code };
-      }
-    } catch { /* An exception's own properties cannot set the evaluation result. */ }
-    return { overall: 'INVALID', reason: 'MDOC_MALFORMED' };
-  }
+  catch (error) { return validationFailure(error) ?? { overall: 'INVALID', reason: 'MDOC_MALFORMED' }; }
 }
