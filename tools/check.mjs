@@ -7,21 +7,34 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const json=p=>JSON.parse(readFileSync(join(root,p),'utf8'));
 assert.equal(json('draft.json').stable,false);
 assert.equal(json('package.json').private,true);
-assert.equal(new Set(json('cases.json').cases.map(x=>x.id)).size,json('cases.json').cases.length);
+const cases=json('cases.json').cases;
+assert.equal(new Set(cases.map(x=>x.id)).size,cases.length);
 for(const s of json('sources.json').sources){assert(s.url.startsWith('https://'));assert(/^[a-f0-9]{64}$/.test(s.sha256));}
-for(const [path,hash] of Object.entries(json('vectors/manifest.json').sha256)) {
+const manifest=json('vectors/manifest.json').sha256;
+for(const [path,hash] of Object.entries(manifest)) {
   assert.equal(createHash('sha256').update(readFileSync(join(root,path))).digest('hex'),hash,path);
 }
-const ids=new Set(json('cases.json').cases.map(value=>value.id));
-for(const vector of json('vectors/base.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/holder-auth.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-base.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-issuer-headers.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-identifiers.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-ca-key-role.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-holder-ca-key-role.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-document-headers.json').cases) assert(ids.has(vector.id),vector.id);
-for(const vector of json('vectors/pqc-status-binding.json').cases) assert(ids.has(vector.id),vector.id);
+const prefixes={
+  'vectors/classification.json':'issuer-result-',
+  'vectors/document-classification.json':'document-result-',
+  'vectors/issuer-facts.json':'issuer-facts-',
+};
+const covered=new Set();
+for(const entry of cases) {
+  assert(Object.hasOwn(manifest,entry.vector),entry.id);
+  const prefix=prefixes[entry.vector]??'';
+  assert(entry.id.startsWith(prefix),entry.id);
+  const id=entry.id.slice(prefix.length),key=entry.vector+'\0'+id;
+  const vector=json(entry.vector).cases.find(value=>value.id===id);
+  assert(vector && !covered.has(key),entry.id);
+  assert.equal(entry.overall,vector.expected.overall??(vector.expected.outcome==='RETURNED'?'VALID':undefined),entry.id);
+  assert.equal(entry.reason,vector.expected.reason,entry.id);
+  covered.add(key);
+}
+for(const path of Object.keys(manifest)) {
+  const vectors=json(path).cases;
+  if(vectors) for(const vector of vectors) assert(covered.has(path+'\0'+vector.id),path+': '+vector.id);
+}
 for(const entry of readdirSync(join(root,'reference')).filter(name=>name.endsWith('.mjs'))) {
   const source=readFileSync(join(root,'reference',entry),'utf8');
   for(const match of source.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g)) {
