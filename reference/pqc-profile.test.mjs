@@ -12,6 +12,20 @@ const root = new X509Certificate(Buffer.from(vectors.trust.rootCertificate, 'hex
 const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID',
   STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE' };
 const result = (status, algorithm) => ({ status, overall: outcomes[status], ...(algorithm ? { algorithm } : {}) });
+const throwingResult = field => {
+  const decision = { status: 'GOOD', overall: 'VALID', algorithm: 'ML-DSA-65' };
+  Object.defineProperty(decision, field, { enumerable: true, get() {
+    throw Object.assign(new Error('status result getter failed'), { overall: 'VALID', code: 'FORGED_SUCCESS' });
+  } });
+  return decision;
+};
+function selectedStatusDecision(policy) {
+  if (policy === 'classic-status-claim') return () => result('GOOD', 'ES256');
+  if (policy === 'array-status-good-no-algorithm') return () => ({ status: ['GOOD'], overall: 'VALID' });
+  if (policy === 'throwing-status-result-status') return () => throwingResult('status');
+  if (policy === 'throwing-status-result-then') return () => throwingResult('then');
+  return statusDecision;
+}
 const bytes = hex => Buffer.from(hex, 'hex');
 const parse = part => {
   const value = Buffer.from(part, 'base64url');
@@ -58,9 +72,7 @@ function parameters(vector) {
         context.statusAlgorithm === 'ML-DSA-65' && context.profileID === BASE_PROFILE;
       return { overall: admitted ? 'VALID' : 'INVALID' };
     },
-    resolveStatus: vector.policy === 'classic-status-claim' ? () => result('GOOD', 'ES256') :
-      vector.policy === 'array-status-good-no-algorithm' ? () => ({ status: ['GOOD'], overall: 'VALID' }) :
-        statusDecision,
+    resolveStatus: selectedStatusDecision(vector.policy),
   };
 }
 for (const entry of vectors.cases) test('serialized complete PQ profile: ' + entry.id, () => {

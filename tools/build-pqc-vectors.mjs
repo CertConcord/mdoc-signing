@@ -85,6 +85,8 @@ add('pqc-reject-classic-document-key', { ...credentialPatch(classicCredential, c
   documentKeyMode: 'PASSKEY_KEY' }, 'INVALID', 'MDOC_PQC_DOCUMENT_KEY_REQUIRED');
 add('pqc-reject-classic-status-claim', { policy: 'classic-status-claim' }, 'INVALID', 'MDOC_PQC_STATUS_REQUIRED');
 add('pqc-reject-array-status-good', { policy: 'array-status-good-no-algorithm' }, 'INVALID', 'MDOC_STATUS_RESULT');
+add('pqc-status-result-status-read-error', { policy: 'throwing-status-result-status' }, 'INDETERMINATE', 'MDOC_STATUS_UNAVAILABLE');
+add('pqc-status-result-then-read-error', { policy: 'throwing-status-result-then' }, 'INDETERMINATE', 'MDOC_STATUS_UNAVAILABLE');
 add('pqc-reject-classic-status-token', { statusEvidence: classicalStatusToken(),
   classicalStatusPublicKey: hex(spki(classicalStatusSigner.publicKey)) }, 'INVALID', 'MDOC_STATUS_INVALID');
 add('pqc-status-revoked', { statusEvidence: statusToken(true) }, 'INVALID', 'MDOC_STATUS_REVOKED');

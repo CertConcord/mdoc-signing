@@ -178,10 +178,13 @@ export function issueIssuerSigned({ namespaces, holderJWK, certificate, privateK
 
 function externalDecision(callback, input, code) {
   requireThat(typeof callback === 'function', code + '_MISSING', 'INDETERMINATE');
-  let value;
-  try { value = callback(input); } catch { throw new MdocValidationError(code + '_UNAVAILABLE', 'INDETERMINATE'); }
-  requireThat(value && typeof value.then !== 'function' && ['VALID', 'INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(value.overall), code + '_RESULT');
-  return { ...value };
+  let snapshot;
+  try {
+    const value = callback(input);
+    snapshot = value && typeof value.then !== 'function' ? { ...value } : undefined;
+  } catch { throw new MdocValidationError(code + '_UNAVAILABLE', 'INDETERMINATE'); }
+  requireThat(snapshot && ['VALID', 'INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(snapshot.overall), code + '_RESULT');
+  return snapshot;
 }
 export function verifySigningCredential(credential, {
   issuerKey, certificate, docType = SIGNING_DOCTYPE, namespace = SIGNING_NAMESPACE,

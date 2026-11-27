@@ -671,6 +671,8 @@
     { "id": "pqc-reject-classic-document-key", "overall": "INVALID", "reason": "MDOC_PQC_DOCUMENT_KEY_REQUIRED", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-reject-classic-status-claim", "overall": "INVALID", "reason": "MDOC_PQC_STATUS_REQUIRED", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-reject-array-status-good", "overall": "INVALID", "reason": "MDOC_STATUS_RESULT", "vector": "vectors/pqc-base.json", "scope": "A status callback array coerces to GOOD as an object key and formerly bypassed the v3 algorithm gate." },
+    { "id": "pqc-status-result-status-read-error", "overall": "INDETERMINATE", "reason": "MDOC_STATUS_UNAVAILABLE", "vector": "vectors/pqc-base.json", "scope": "A throwing status getter formerly escaped as a forged VALID outcome; status result reads must fail closed." },
+    { "id": "pqc-status-result-then-read-error", "overall": "INDETERMINATE", "reason": "MDOC_STATUS_UNAVAILABLE", "vector": "vectors/pqc-base.json", "scope": "A throwing then getter formerly escaped as a forged VALID outcome before status result snapshotting." },
     { "id": "pqc-reject-classic-status-token", "overall": "INVALID", "reason": "MDOC_STATUS_INVALID", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-status-revoked", "overall": "INVALID", "reason": "MDOC_STATUS_REVOKED", "vector": "vectors/pqc-base.json" },
     { "id": "pqc-status-stale", "overall": "INDETERMINATE", "reason": "MDOC_STATUS_STALE", "vector": "vectors/pqc-base.json" },
