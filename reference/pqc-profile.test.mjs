@@ -58,7 +58,9 @@ function parameters(vector) {
         context.statusAlgorithm === 'ML-DSA-65' && context.profileID === BASE_PROFILE;
       return { overall: admitted ? 'VALID' : 'INVALID' };
     },
-    resolveStatus: vector.policy === 'classic-status-claim' ? () => result('GOOD', 'ES256') : statusDecision,
+    resolveStatus: vector.policy === 'classic-status-claim' ? () => result('GOOD', 'ES256') :
+      vector.policy === 'array-status-good-no-algorithm' ? () => ({ status: ['GOOD'], overall: 'VALID' }) :
+        statusDecision,
   };
 }
 for (const entry of vectors.cases) test('serialized complete PQ profile: ' + entry.id, () => {
