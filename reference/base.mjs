@@ -297,6 +297,7 @@ export function verifySignedDocument(document, signature, credential, options) {
     retainedDocument = Buffer.from(document);
     retainedSignature = Buffer.from(signature);
     retainedCredential = Buffer.from(credential);
+    // Caller contract: trusted configuration supplies a genuine native public KeyObject.
     const configuredIssuerKey = options.issuerKey;
     const issuerKey = configuredIssuerKey === undefined ? undefined : createPublicKey({
       key: configuredIssuerKey.export({ format: 'der', type: 'spki' }), type: 'spki', format: 'der',
