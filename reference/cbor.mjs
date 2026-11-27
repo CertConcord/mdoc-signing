@@ -153,14 +153,15 @@ export function unembed(value) {
 }
 export function coseKey(jwk) {
   if (jwk?.kty === 'AKP') {
-    const algorithm = { 'ML-DSA-65': -49, 'ML-DSA-87': -50 }[jwk.alg];
+    const name = jwk.alg;
+    const algorithm = name === 'ML-DSA-65' ? -49 : name === 'ML-DSA-87' ? -50 : undefined;
     const pub = unb64u(jwk.pub);
     requireThat(algorithm && pub.length === (algorithm === -49 ? 1952 : 2592) && !jwk.priv &&
       Object.keys(jwk).every(key => ['kty', 'alg', 'pub'].includes(key)), 'COSE_KEY');
     let publicKey;
-    try { publicKey = createPublicKey({ key: jwk, format: 'jwk' }); }
+    try { publicKey = createPublicKey({ key: { kty: 'AKP', alg: name, pub: b64u(pub) }, format: 'jwk' }); }
     catch { requireThat(false, 'COSE_KEY'); }
-    requireThat(publicKey.asymmetricKeyType === jwk.alg.toLowerCase(), 'COSE_KEY');
+    requireThat(publicKey.asymmetricKeyType === name.toLowerCase(), 'COSE_KEY');
     return new Map([[1, 7], [3, algorithm], [-1, pub]]);
   }
   requireThat(jwk?.kty === 'EC' && jwk.crv === 'P-256' && !jwk.d, 'COSE_KEY');
