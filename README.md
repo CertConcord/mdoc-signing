@@ -12,6 +12,8 @@ The base reference owns CBOR, ML-DSA issuerAuth/MSO and certificate-path checks,
 
 The public document evaluator expects its configured issuer key to be a genuine native public Node.js `KeyObject` supplied by a trusted configuration adapter. Its key comparison checks consistency with the selected certificate; it cannot authenticate the JavaScript object's provenance or confer signing CA authority. See the [authorization interface](draft.md#5-authorization-and-status-interfaces) for the caller contract.
 
+The issuer and signing-credential primitives verify `issuerAuth` with the public key parsed from the pinned leaf certificate. The supplied `issuerKey` remains a consistency selection; a key-like object's claimed export cannot substitute its own verification key. [Issuer key binding vectors](vectors/issuer-key-binding.json) retain an attacker-signed rejection. Issuer admission still requires an external authorization decision.
+
 Standalone document-signature preparation and verification accept a caller-supplied P-256 key for the historical ES256 cryptographic corpus. Those primitives do not select a profile or apply `allowLegacyClassical`; the complete document evaluator requires the exact v2 profile and Boolean `true` before admitting a classical credential. Primitive signature success grants no signing authority.
 
 [PQ certificate-path key-role vectors](vectors/pqc-ca-key-role.json) show a distinct document key and reject mathematically valid document signatures made with the selected root or intermediate CA key.

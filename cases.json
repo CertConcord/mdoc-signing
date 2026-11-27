@@ -736,6 +736,7 @@
     {"id": "evaluator-input-byte-type", "overall": "INVALID", "reason": "MDOC_DOCUMENT_BYTES", "vector": "vectors/evaluator-errors.json", "scope": "A normal non-Buffer document retains the verifier-owned byte type diagnostic."},
     {"id": "evaluator-relation-device-key", "overall": "INVALID", "reason": "DOCUMENT_DEVICE_KEY_BINDING", "vector": "vectors/evaluator-errors.json", "scope": "Complete signed historical v2 material preserves the verifier-owned device key relation diagnostic."},
     {"id": "evaluator-relation-passkey-key", "overall": "INVALID", "reason": "DOCUMENT_PASSKEY_KEY_BINDING", "vector": "vectors/evaluator-errors.json", "scope": "Complete signed historical v2 material preserves the verifier-owned passkey key relation diagnostic."},
-    {"id": "evaluator-relation-independent-key", "overall": "INVALID", "reason": "DOCUMENT_INDEPENDENT_PQ_KEY", "vector": "vectors/evaluator-errors.json", "scope": "Complete signed historical v2 material preserves the verifier-owned independent key relation diagnostic."}
+    {"id": "evaluator-relation-independent-key", "overall": "INVALID", "reason": "DOCUMENT_INDEPENDENT_PQ_KEY", "vector": "vectors/evaluator-errors.json", "scope": "Complete signed historical v2 material preserves the verifier-owned independent key relation diagnostic."},
+    {"id": "pq-forged-issuer-key-options", "overall": "INVALID", "reason": "COSE_SIGNATURE", "vector": "vectors/issuer-key-binding.json", "scope": "A valid ML-DSA-65 signature under an attacker key cannot pass issuerAuth by supplying a key-like object whose export claims the pinned certificate SPKI."}
   ]
 }

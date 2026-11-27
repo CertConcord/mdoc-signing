@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createHash, createPublicKey, verify, X509Certificate } from 'node:crypto';
+import { encode, decode, get } from './cbor.mjs';
+import { evaluateSignedDocument, verifyIssuerSigned, verifySigningCredential } from './base.mjs';
+import { verifyHolderAuthentication } from './holder-auth.mjs';
+
+const sourceBytes = readFileSync(new URL('../vectors/pqc-base.json', import.meta.url));
+const source = JSON.parse(sourceBytes);
+const vectors = JSON.parse(readFileSync(new URL('../vectors/issuer-key-binding.json', import.meta.url)));
+const bytes = hex => Buffer.from(hex, 'hex');
+const sha256 = value => createHash('sha256').update(value).digest('hex');
+
+test('certificate key, not caller key-like options, verifies issuerAuth mathematics', () => {
+  const entry = vectors.cases[0], base = source.base;
+  assert.equal(vectors.source.case, 'pqc-complete-ml-dsa-65');
+  assert.equal(source.cases.find(value => value.id === vectors.source.case)?.expected.overall, 'VALID');
+  assert.equal(entry.expected.overall, 'INVALID');
+  assert.equal(sha256(sourceBytes), vectors.source.sha256);
+  assert.equal(sha256(bytes(base.credential)), entry.originalCredentialSha256);
+  const certificate = bytes(base.certificate);
+  const selectedKey = new X509Certificate(certificate).publicKey;
+  const selectedSpki = selectedKey.export({ type: 'spki', format: 'der' });
+  assert.equal(sha256(selectedSpki), entry.selectedCertificateSpkiSha256);
+  const attackerKey = createPublicKey({
+    key: bytes(entry.attackerPublicKeySpki), type: 'spki', format: 'der',
+  });
+  assert.notEqual(sha256(attackerKey.export({ type: 'spki', format: 'der' })),
+    entry.selectedCertificateSpkiSha256);
+
+  const changed = decode(bytes(base.credential));
+  const issuerAuth = get(changed, 'issuerAuth');
+  const signed = encode(['Signature1', issuerAuth[0], Buffer.alloc(0), issuerAuth[2]]);
+  issuerAuth[3] = bytes(entry.attackerIssuerAuthSignature);
+  const tampered = encode(changed);
+  assert.equal(sha256(tampered), entry.tamperedCredentialSha256);
+  assert.equal(verify(null, signed, selectedKey, issuerAuth[3]), false);
+  assert.equal(verify(null, signed, attackerKey, issuerAuth[3]), true);
+  const forgedKey = {
+    asymmetricKeyType: 'ml-dsa-65',
+    export: () => Buffer.from(selectedSpki),
+    key: attackerKey,
+  };
+  const common = {
+    certificate, stateTime: base.stateTime, knowledgeTime: base.knowledgeTime,
+    trustAnchorCertificate: bytes(source.trust.rootCertificate),
+    profileID: base.profileID, documentKeyMode: base.documentKeyMode,
+    statusEvidence: base.statusEvidence,
+    authorizeIssuer: () => ({ overall: 'VALID' }),
+    resolveStatus: () => ({ overall: 'VALID', status: 'GOOD', algorithm: 'ML-DSA-65' }),
+  };
+  assert.equal(verifySigningCredential(bytes(base.credential),
+    { ...common, issuerKey: selectedKey }).overall, 'VALID');
+  assert.throws(() => verifyIssuerSigned(tampered,
+    { issuerKey: selectedKey, certificate, at: base.stateTime }),
+  { code: entry.expected.reason });
+  assert.throws(() => verifyIssuerSigned(tampered,
+    { issuerKey: forgedKey, certificate, at: base.stateTime }),
+  { code: entry.expected.reason });
+  assert.throws(() => verifySigningCredential(tampered,
+    { ...common, issuerKey: forgedKey }),
+  { code: entry.expected.reason });
+  assert.throws(() => verifyHolderAuthentication(bytes(base.deviceSigned), tampered, {
+    issuerKey: forgedKey, certificate, at: base.stateTime,
+    sessionTranscript: bytes(base.sessionTranscript),
+  }), { code: entry.expected.reason });
+  const highLevel = evaluateSignedDocument(bytes(base.document), bytes(base.signature),
+    tampered, { ...common, issuerKey: forgedKey });
+  assert.deepEqual({ overall: highLevel.overall, reason: highLevel.reason },
+    { overall: 'INVALID', reason: 'MDOC_MALFORMED' });
+});

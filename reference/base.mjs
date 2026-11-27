@@ -98,7 +98,9 @@ function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNI
   requireThat(algorithm === selectedAlgorithm, 'COSE_ALGORITHM_UNSUPPORTED', 'UNSUPPORTED');
   // Evaluate the selected signature over retained bytes before unimplemented critical or MSO
   // semantics. Unknown algorithms do not authorize guessing another suite's mathematics.
-  requireThat(auth.value[3].length === issuerSignatureLength(algorithm) && verify(issuerDigest(algorithm), encode(['Signature1', auth.value[0], Buffer.alloc(0), auth.value[2]]), issuerSignatureOptions(issuerKey, algorithm), auth.value[3]), 'COSE_SIGNATURE');
+  // Verify with the public key parsed from the pinned certificate. A caller-supplied
+  // key-like object can claim that key through export() while crypto.verify uses its key field.
+  requireThat(auth.value[3].length === issuerSignatureLength(algorithm) && verify(issuerDigest(algorithm), encode(['Signature1', auth.value[0], Buffer.alloc(0), auth.value[2]]), issuerSignatureOptions(ds.publicKey, algorithm), auth.value[3]), 'COSE_SIGNATURE');
   requireThat(!auth.critical, 'COSE_CRITICAL_UNSUPPORTED', 'UNSUPPORTED');
   const mso = unembed(decode(auth.value[2]));
   requireThat(mso instanceof Map && text(mso.get('version')), 'MDOC_CAPABILITY_STRUCTURE');
