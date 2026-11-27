@@ -157,6 +157,46 @@ test('document signature preparation binds the presented document bytes', () => 
   assert.deepEqual(prepareDocumentSignature(shadowed, options).tbs, expected);
 });
 
+test('direct document verification uses one private document snapshot', () => {
+  const input = selectedInputs();
+  const validated = evaluateSignedDocument(input.document, input.signature,
+    input.credential, input.options);
+  assert.equal(validated.overall, 'VALID');
+  const options = { credential: input.credential, publicKey: validated.publicKey };
+  const ordinary = verifyDocumentSignature(input.signature, input.document, options);
+  assert.deepEqual(ordinary.tbs, prepareDocumentSignature(input.document, options).tbs);
+
+  const verifyAfterFirstCopy = firstIsValid => {
+    const shared = Buffer.from(new SharedArrayBuffer(input.document.length));
+    input.document.copy(shared);
+    if (!firstIsValid) shared[0] ^= 1;
+    const originalSet = Uint8Array.prototype.set;
+    let changed = false, output, error;
+    Uint8Array.prototype.set = function (bytes, offset) {
+      const result = originalSet.call(this, bytes, offset);
+      if (!changed && bytes.buffer === shared.buffer &&
+        this.byteLength === shared.byteLength) {
+        shared[0] ^= 1;
+        changed = true;
+      }
+      return result;
+    };
+    try { output = verifyDocumentSignature(input.signature, shared, options); }
+    catch (failure) { error = failure; }
+    finally { Uint8Array.prototype.set = originalSet; }
+    assert.equal(changed, true);
+    return { output, error, shared };
+  };
+  const invalidFirst = verifyAfterFirstCopy(false);
+  assert.deepEqual(invalidFirst.shared, input.document);
+  assert.equal(invalidFirst.error?.code, 'MDOC_DOCUMENT_SIGNATURE');
+  assert.equal(invalidFirst.output, undefined);
+  const validFirst = verifyAfterFirstCopy(true);
+  assert.notDeepEqual(validFirst.shared, input.document);
+  assert.equal(validFirst.error, undefined);
+  assert.deepEqual(validFirst.output.tbs, ordinary.tbs);
+});
+
 test('document signature packaging retains the verified signature bytes', () => {
   const input = selectedInputs();
   const validated = evaluateSignedDocument(input.document, input.signature, input.credential, input.options);

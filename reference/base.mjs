@@ -270,18 +270,20 @@ function signatureParameters(document, { credential, publicKey, requiredProtecte
   const extensions = copy(requiredProtectedHeaders);
   const headers = new Map([[1, algorithm], [2, [CREDENTIAL_HEADER, ...extensions.keys()]], [3, 'application/certconcord-mdoc-document'], [CREDENTIAL_HEADER, hash('sha512', credential)], ...extensions]);
   const protectedBytes = encode(headers), payload = nativeUint8Copy(document);
-  return { algorithm, protectedBytes, tbs: encode(['Signature1', protectedBytes, Buffer.alloc(0), payload]), publicKey };
+  return { algorithm, protectedBytes, payload,
+    tbs: encode(['Signature1', protectedBytes, Buffer.alloc(0), payload]), publicKey };
 }
 function verifyDocumentValue(parameters, signature) {
   return isNativeBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
 }
 export function prepareDocumentSignature(document, options) {
-  const parameters = signatureParameters(document, options);
-  return { tbs: nativeUint8Copy(parameters.tbs), algorithm: parameters.algorithm, finish(signature) {
+  const { algorithm, protectedBytes, tbs, publicKey } = signatureParameters(document, options);
+  return { tbs: nativeUint8Copy(tbs), algorithm, finish(signature) {
     requireThat(isNativeBuffer(signature), 'MDOC_DOCUMENT_SIGNATURE');
     const retainedSignature = nativeUint8Copy(signature);
-    requireThat(verifyDocumentValue(parameters, retainedSignature), 'MDOC_DOCUMENT_SIGNATURE');
-    return encode([parameters.protectedBytes, new Map(), null, retainedSignature]);
+    requireThat(verifyDocumentValue({ algorithm, tbs, publicKey }, retainedSignature),
+      'MDOC_DOCUMENT_SIGNATURE');
+    return encode([protectedBytes, new Map(), null, retainedSignature]);
   } };
 }
 export function verifyDocumentSignature(signature, document, options) {
@@ -294,7 +296,8 @@ export function verifyDocumentSignature(signature, document, options) {
   requireThat([-49, -50, -7].includes(algorithm), 'MDOC_DOCUMENT_ALGORITHM', 'UNSUPPORTED');
   const parameters = signatureParameters(document, options);
   requireThat(algorithm === parameters.algorithm, 'MDOC_DOCUMENT_ALGORITHM_MISMATCH');
-  const received = { ...parameters, tbs: encode(['Signature1', value[0], Buffer.alloc(0), document]) };
+  const received = { ...parameters,
+    tbs: encode(['Signature1', value[0], Buffer.alloc(0), parameters.payload]) };
   requireThat(verifyDocumentValue(received, value[3]), 'MDOC_DOCUMENT_SIGNATURE');
   requireThat(same(value[0], parameters.protectedBytes), 'MDOC_DOCUMENT_PROTECTED_HEADERS');
   return { tbs: received.tbs, signature: nativeUint8Copy(value[3]) };
