@@ -24,6 +24,8 @@ Standalone document-signature preparation and verification accept a caller-suppl
 
 [EC2 coordinate-type vectors](vectors/cose-ec2-coordinate-types.json) hold one valid P-256 point as byte-string coordinates and as two malformed COSE_Key encodings with a text `x` or array `y`. The historical v2 parser rejects both malformed types before converting to a JWK, even though the coordinate bytes form the same valid point. Direct calls also accept native `Uint8Array` coordinates from another Node.js `vm` context; the selected encoder writes those inputs as CBOR byte strings. RFC 9053 §7.1.1 defines the COSE types; this check does not select a v2 profile or change the experimental v3 PQ suite.
 
+The public AKP key converter applies the same native-byte-array rule to RFC 9964 `pub`. The [direct-call regression](reference/pqc-akp-byte-view.test.mjs) reuses the exact pinned ML-DSA-65 device key from [complete PQ vectors](vectors/pqc-base.json): `Buffer` and native `Uint8Array` values from the current or another Node.js context encode to identical CBOR bytes and return the same JWK. An ordinary array, another typed view and a shortened key remain rejected. This representation check does not admit an issuer or make the experimental PQ mdoc suite an ISO-selected algorithm.
+
 [PQ document map-order vectors](vectors/pqc-document-map-order.json) distinguish RFC 8949 core bytewise map-key ordering from the older length-first order using independently signed detached COSE headers. Both signatures have valid ML-DSA mathematics; only the selected exact header bytes pass this experimental document primitive.
 
 Run with Node.js 24.15 or later:

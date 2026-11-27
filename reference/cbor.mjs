@@ -168,7 +168,7 @@ export function coseJWK(key) {
   if (get(key, 1) === 7) {
     const algorithm = get(key, 3);
     const name = { '-49': 'ML-DSA-65', '-50': 'ML-DSA-87' }[algorithm];
-    requireThat(name && key.size === 3 && Buffer.isBuffer(get(key, -1)) && !key.has(-2), 'COSE_KEY');
+    requireThat(name && key.size === 3 && types.isUint8Array(get(key, -1)) && !key.has(-2), 'COSE_KEY');
     const jwk = { kty: 'AKP', alg: name, pub: b64u(get(key, -1)) };
     coseKey(jwk);
     return jwk;
