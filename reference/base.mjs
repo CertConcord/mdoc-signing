@@ -12,6 +12,7 @@ export const isLegacyClassicalProfile = profileID => legacyProfiles.has(profileI
 export const CREDENTIAL_HEADER = 'urn:certconcord:credential:1';
 const hash = (algorithm, bytes) => createHash(algorithm).update(bytes).digest();
 const same = (a, b) => Buffer.isBuffer(a) && Buffer.isBuffer(b) && a.equals(b);
+const ownedBytes = value => { const bytes = Buffer.alloc(value.length); value.copy(bytes); return bytes; };
 const spki = key => key.export({ format: 'der', type: 'spki' });
 const nativeKeyEquals = KeyObject.prototype.equals;
 const copy = value => decode(encode(value));
@@ -59,7 +60,7 @@ function verifyPqcCertificatePath(chain, trustAnchorCertificate, at) {
       child.verify(parent.publicKey) && child.validFromDate.getTime() / 1000 <= at &&
       at < child.validToDate.getTime() / 1000 && (i === 0 ? !child.ca : child.ca), 'MDOC_PQC_TRUST_PATH');
   }
-  return { trustAnchorCertificate: Buffer.from(root.raw), path: certificates.map(value => Buffer.from(value.raw)) };
+  return { trustAnchorCertificate: ownedBytes(root.raw), path: certificates.map(value => ownedBytes(value.raw)) };
 }
 function issuerAuth(value) {
   requireThat(Array.isArray(value) && value.length === 4 && Buffer.isBuffer(value[0]) && value[1] instanceof Map && Buffer.isBuffer(value[2]) && Buffer.isBuffer(value[3]), 'MDOC_ISSUER_AUTH');
@@ -144,8 +145,8 @@ function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNI
   requireThat(!same(spki(ds.publicKey), spki(holderPublicKey)), 'MDOC_KEY_ROLE_COLLISION');
   return { mso, claims, holderJWK, holderPublicKey, issuerAlgorithm: selectedAlgorithm,
     issuerSigned: is, credential: bytes, issuerAuthBytes: encode(auth.value),
-    certificateBytes: Buffer.from(ds.certificate.raw),
-    certificateChain: auth.certificates.map(value => Buffer.from(value)),
+    certificateBytes: ownedBytes(ds.certificate.raw),
+    certificateChain: auth.certificates.map(ownedBytes),
     certificateBound: auth.certificateBound, validity };
 }
 
@@ -243,12 +244,12 @@ export function verifySigningCredential(credential, {
   requireThat(uri.protocol === 'https:' && !uri.username && !uri.password && !uri.hash && uri.href === reference.get('uri') && integer(reference.get('idx')), 'MDOC_STATUS_REFERENCE');
   const common = { issuer: claims.get('issuer'), docType, namespace, profileID, documentKeyMode, purpose: 'DOCUMENT_SIGN',
     statusAlgorithm: pqProfile ? 'ML-DSA-65' : 'ES256', stateTime, knowledgeTime };
-  const authorization = externalDecision(authorizeIssuer, { ...common, certificate: Buffer.from(validated.certificateBytes),
-    certificateChain: validated.certificateChain.map(value => Buffer.from(value)),
-    trustAnchorCertificate: pqPath && Buffer.from(pqPath.trustAnchorCertificate),
-    credentialID: Buffer.from(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
+  const authorization = externalDecision(authorizeIssuer, { ...common, certificate: ownedBytes(validated.certificateBytes),
+    certificateChain: validated.certificateChain.map(ownedBytes),
+    trustAnchorCertificate: pqPath && ownedBytes(pqPath.trustAnchorCertificate),
+    credentialID: ownedBytes(claims.get('credential_id')) }, 'MDOC_ISSUER_AUTHORIZATION');
   requireThat(authorization.overall === 'VALID', 'MDOC_ISSUER_AUTHORIZATION', authorization.overall);
-  const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: Buffer.from(claims.get('credential_id')), certificate: Buffer.from(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
+  const decision = externalDecision(resolveStatus, { ...common, reference: { uri: reference.get('uri'), idx: reference.get('idx') }, credentialID: ownedBytes(claims.get('credential_id')), certificate: ownedBytes(validated.certificateBytes), evidence: retainedStatusEvidence }, 'MDOC_STATUS');
   const outcomes = { GOOD: 'VALID', REVOKED: 'INVALID', INVALID: 'INVALID', STALE: 'INDETERMINATE', MISSING: 'INDETERMINATE', UNKNOWN: 'INDETERMINATE', CONFLICTING: 'INDETERMINATE', UNSUPPORTED: 'UNSUPPORTED' };
   requireThat(typeof decision.status === 'string' && Object.hasOwn(outcomes, decision.status) &&
     outcomes[decision.status] === decision.overall, 'MDOC_STATUS_RESULT');

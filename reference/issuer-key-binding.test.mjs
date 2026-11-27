@@ -8,6 +8,7 @@ import { verifyHolderAuthentication } from './holder-auth.mjs';
 
 const sourceBytes = readFileSync(new URL('../vectors/pqc-base.json', import.meta.url));
 const source = JSON.parse(sourceBytes);
+const historical = JSON.parse(readFileSync(new URL('../vectors/base.json', import.meta.url)));
 const vectors = JSON.parse(readFileSync(new URL('../vectors/issuer-key-binding.json', import.meta.url)));
 const bytes = hex => Buffer.from(hex, 'hex');
 const sha256 = value => createHash('sha256').update(value).digest('hex');
@@ -146,4 +147,33 @@ test('direct issuer facts and both policy callbacks receive the verified leaf by
   assert.deepEqual(validated.certificateBytes, original);
   assert.equal(observed.length, 2);
   for (const value of observed) assert.deepEqual(value, original);
+});
+
+for (const { name, vector, trustAnchorCertificate, allowLegacyClassical } of [
+  { name: 'historical v2 short leaf', vector: historical.cases[0],
+    allowLegacyClassical: true },
+  { name: 'experimental v3 long leaf', vector: source.base,
+    trustAnchorCertificate: bytes(source.trust.rootCertificate) },
+]) test(`${name} retains distinct certificate storage for facts and policy callbacks`, () => {
+  const certificate = bytes(vector.certificate), observed = [];
+  const validated = verifySigningCredential(bytes(vector.credential), {
+    issuerKey: new X509Certificate(certificate).publicKey, certificate,
+    profileID: vector.profileID, documentKeyMode: vector.documentKeyMode,
+    stateTime: vector.stateTime, knowledgeTime: vector.knowledgeTime,
+    statusEvidence: vector.statusEvidence, trustAnchorCertificate, allowLegacyClassical,
+    authorizeIssuer: context => { observed.push(context.certificate, context.certificateChain[0]);
+      return { overall: 'VALID' }; },
+    resolveStatus: context => { observed.push(context.certificate);
+      return { overall: 'VALID', status: 'GOOD', algorithm: 'ML-DSA-65' }; },
+  });
+  assert.equal(validated.overall, 'VALID');
+  const retained = [validated.certificateBytes, validated.certificateChain[0], ...observed];
+  assert.equal(retained.length, 5);
+  for (const [index, value] of retained.entries()) {
+    assert.deepEqual(value, certificate, `${name} DER copy ${index} changed`);
+    assert.equal(value.buffer.byteLength, value.length, `${name} DER copy ${index} uses pooled storage`);
+    for (const prior of retained.slice(0, index))
+      assert.notStrictEqual(value.buffer, prior.buffer, `${name} DER copies share backing storage`);
+    assert.notStrictEqual(value.buffer, certificate.buffer, `${name} DER copy aliases caller storage`);
+  }
 });
