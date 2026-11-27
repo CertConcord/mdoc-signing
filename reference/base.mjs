@@ -277,12 +277,13 @@ function verifyDocumentValue(parameters, signature) {
   return isNativeBuffer(signature) && (parameters.algorithm === -7 ? signature.length === 64 : signature.length === (parameters.algorithm === -49 ? 3309 : 4627)) && verify(parameters.algorithm === -7 ? 'sha256' : null, parameters.tbs, parameters.algorithm === -7 ? { key: parameters.publicKey, dsaEncoding: 'ieee-p1363' } : parameters.publicKey, signature);
 }
 export function prepareDocumentSignature(document, options) {
-  const parameters = signatureParameters(document, options);
-  return { tbs: nativeUint8Copy(parameters.tbs), algorithm: parameters.algorithm, finish(signature) {
+  const { algorithm, protectedBytes, tbs, publicKey } = signatureParameters(document, options);
+  return { tbs: nativeUint8Copy(tbs), algorithm, finish(signature) {
     requireThat(isNativeBuffer(signature), 'MDOC_DOCUMENT_SIGNATURE');
     const retainedSignature = nativeUint8Copy(signature);
-    requireThat(verifyDocumentValue(parameters, retainedSignature), 'MDOC_DOCUMENT_SIGNATURE');
-    return encode([parameters.protectedBytes, new Map(), null, retainedSignature]);
+    requireThat(verifyDocumentValue({ algorithm, tbs, publicKey }, retainedSignature),
+      'MDOC_DOCUMENT_SIGNATURE');
+    return encode([protectedBytes, new Map(), null, retainedSignature]);
   } };
 }
 export function verifyDocumentSignature(signature, document, options) {
