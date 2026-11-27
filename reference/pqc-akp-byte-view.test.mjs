@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { generateKeyPairSync } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
 import { types } from 'node:util';
-import { coseJWK, decode, encode, get, unembed } from './cbor.mjs';
+import { coseJWK, coseKey, decode, encode, get, unembed } from './cbor.mjs';
 
 const vectors = JSON.parse(readFileSync(new URL('../vectors/pqc-base.json', import.meta.url)));
 const credential = decode(Buffer.from(vectors.base.credential, 'hex'));
@@ -47,6 +48,37 @@ test('AKP pub is read once from a stable direct-call map', () => {
   };
   assert.deepEqual(coseJWK(key), selectedJWK);
   assert.equal(reads, 1);
+});
+
+test('AKP JWK encoder reads a one-shot public key once', () => {
+  let reads = 0;
+  const key = { kty: 'AKP', alg: selectedJWK.alg,
+    get pub() {
+      if (++reads !== 1) throw new Error('public key was read twice');
+      return selectedJWK.pub;
+    } };
+  assert.deepEqual(coseKey(key), selected);
+  assert.equal(reads, 1);
+});
+
+test('AKP JWK encoder checks the same public bytes it emits', () => {
+  const other = Buffer.from(pub);
+  other[0] ^= 1;
+  let reads = 0;
+  const key = { kty: 'AKP', alg: selectedJWK.alg,
+    get pub() { return ++reads === 1 ? selectedJWK.pub : other.toString('base64url'); } };
+  const encoded = coseKey(key);
+  assert.deepEqual(encoded, selected);
+  assert.equal(reads, 1);
+  assert.deepEqual(coseJWK(encoded), selectedJWK);
+});
+
+test('AKP JWK encoder preserves a normal ML-DSA-87 public key', () => {
+  const key = generateKeyPairSync('ml-dsa-87').publicKey.export({ format: 'jwk' });
+  const encoded = coseKey(key);
+  assert.equal(encoded.get(3), -50);
+  assert.equal(encoded.get(-1).length, 2592);
+  assert.deepEqual(coseJWK(encoded), key);
 });
 
 test('AKP pub uses the native bytes of an offset subview', () => {
