@@ -141,8 +141,12 @@ function issuerSignedFacts(credential, { issuerKey, certificate, docType = SIGNI
   const holderJWK = coseJWK(get(keyInfo, 'deviceKey'));
   requireThat(get(keyInfo, 'deviceKey').size === (holderJWK.kty === 'AKP' ? 3 : 4), 'MDOC_DEVICE_KEY_FIELDS');
   const holderPublicKey = createPublicKey({ key: holderJWK, format: 'jwk' });
-  requireThat(!same(spki(issuerKey), spki(holderPublicKey)), 'MDOC_KEY_ROLE_COLLISION');
-  return { mso, claims, holderJWK, holderPublicKey, issuerSigned: is, credential: bytes, issuerAuthBytes: encode(auth.value), certificateBytes: Buffer.from(certificate), certificateChain: auth.certificates.map(value => Buffer.from(value)), certificateBound: auth.certificateBound, validity };
+  requireThat(!same(spki(ds.publicKey), spki(holderPublicKey)), 'MDOC_KEY_ROLE_COLLISION');
+  return { mso, claims, holderJWK, holderPublicKey, issuerAlgorithm: selectedAlgorithm,
+    issuerSigned: is, credential: bytes, issuerAuthBytes: encode(auth.value),
+    certificateBytes: Buffer.from(ds.certificate.raw),
+    certificateChain: auth.certificates.map(value => Buffer.from(value)),
+    certificateBound: auth.certificateBound, validity };
 }
 
 // Original-byte mathematics and structure only, with no evaluation time or admission verdict.
@@ -207,9 +211,9 @@ export function verifySigningCredential(credential, {
   requireThat(text(claims.get('issuer')) && text(profileID) && claims.get('profile_id') === profileID, 'MDOC_PROFILE');
   const pqProfile = profileID === BASE_PROFILE;
   requireThat(pqProfile || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)), 'MDOC_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
-  if (pqProfile) requireThat(issuerAlgorithm(issuerKey) === -49 &&
+  if (pqProfile) requireThat(validated.issuerAlgorithm === -49 &&
     validated.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_PQC_AUTHENTICATION_REQUIRED');
-  else requireThat(issuerAlgorithm(issuerKey) === -7 && p256(validated.holderPublicKey),
+  else requireThat(validated.issuerAlgorithm === -7 && p256(validated.holderPublicKey),
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
   const pqPath = pqProfile ? verifyPqcCertificatePath(validated.certificateChain, trustAnchorCertificate, stateTime) : undefined;
   requireThat(Array.isArray(claims.get('allowed_purposes')) && claims.get('allowed_purposes').length === 1 && claims.get('allowed_purposes')[0] === 'DOCUMENT_SIGN', 'MDOC_PURPOSE');

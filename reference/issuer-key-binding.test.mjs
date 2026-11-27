@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash, createPublicKey, verify, X509Certificate } from 'node:crypto';
 import { encode, decode, get } from './cbor.mjs';
-import { evaluateSignedDocument, verifyIssuerSigned, verifySigningCredential } from './base.mjs';
+import { evaluateSignedDocument, inspectIssuerSigned, verifyIssuerSigned, verifySigningCredential } from './base.mjs';
 import { verifyHolderAuthentication } from './holder-auth.mjs';
 
 const sourceBytes = readFileSync(new URL('../vectors/pqc-base.json', import.meta.url));
@@ -42,6 +42,10 @@ test('certificate key, not caller key-like options, verifies issuerAuth mathemat
     export: () => Buffer.from(selectedSpki),
     key: attackerKey,
   };
+  const nativeForgedKey = createPublicKey({
+    key: bytes(entry.attackerPublicKeySpki), type: 'spki', format: 'der',
+  });
+  nativeForgedKey.export = () => Buffer.from(selectedSpki);
   const common = {
     certificate, stateTime: base.stateTime, knowledgeTime: base.knowledgeTime,
     trustAnchorCertificate: bytes(source.trust.rootCertificate),
@@ -58,6 +62,9 @@ test('certificate key, not caller key-like options, verifies issuerAuth mathemat
   assert.throws(() => verifyIssuerSigned(tampered,
     { issuerKey: forgedKey, certificate, at: base.stateTime }),
   { code: entry.expected.reason });
+  assert.throws(() => verifyIssuerSigned(tampered,
+    { issuerKey: nativeForgedKey, certificate, at: base.stateTime }),
+  { code: entry.expected.reason });
   assert.throws(() => verifySigningCredential(tampered,
     { ...common, issuerKey: forgedKey }),
   { code: entry.expected.reason });
@@ -69,4 +76,74 @@ test('certificate key, not caller key-like options, verifies issuerAuth mathemat
     tampered, { ...common, issuerKey: forgedKey });
   assert.deepEqual({ overall: highLevel.overall, reason: highLevel.reason },
     { overall: 'INVALID', reason: 'MDOC_MALFORMED' });
+});
+
+test('direct issuer role comparison retains the selected leaf key', () => {
+  const base = source.base, certificate = bytes(base.certificate);
+  const selectedKey = new X509Certificate(certificate).publicKey;
+  const selectedSpki = selectedKey.export({ type: 'spki', format: 'der' });
+  const credential = bytes(base.credential);
+  const holderSpki = inspectIssuerSigned(credential, { certificate, issuerKey: selectedKey })
+    .holderPublicKey.export({ type: 'spki', format: 'der' });
+  const changingExport = () => {
+    let exports = 0;
+    return { asymmetricKeyType: 'ml-dsa-65', export: () => Buffer.from(exports++ ? holderSpki : selectedSpki) };
+  };
+  assert.equal(verifyIssuerSigned(credential, { certificate, issuerKey: changingExport(), at: base.stateTime })
+    .issuerAlgorithm, -49);
+});
+
+test('direct credential and holder suites retain the selected leaf algorithm', () => {
+  const base = source.base, certificate = bytes(base.certificate), credential = bytes(base.credential);
+  const selectedSpki = new X509Certificate(certificate).publicKey.export({ type: 'spki', format: 'der' });
+  const common = {
+    certificate, stateTime: base.stateTime, knowledgeTime: base.knowledgeTime,
+    trustAnchorCertificate: bytes(source.trust.rootCertificate),
+    profileID: base.profileID, documentKeyMode: base.documentKeyMode,
+    statusEvidence: base.statusEvidence,
+    authorizeIssuer: () => ({ overall: 'VALID' }),
+    resolveStatus: () => ({ overall: 'VALID', status: 'GOOD', algorithm: 'ML-DSA-65' }),
+  };
+  const changingType = () => {
+    let reads = 0;
+    return { get asymmetricKeyType() { return reads++ < 2 ? 'ml-dsa-65' : 'ec'; },
+      export: () => Buffer.from(selectedSpki) };
+  };
+  assert.equal(verifySigningCredential(credential, { ...common, issuerKey: changingType() }).overall, 'VALID');
+  assert(verifyHolderAuthentication(bytes(base.deviceSigned), credential, {
+    issuerKey: changingType(), certificate, at: base.stateTime,
+    sessionTranscript: bytes(base.sessionTranscript),
+  }).holderProof);
+});
+
+test('direct issuer facts and both policy callbacks receive the verified leaf bytes', () => {
+  const base = source.base, original = bytes(base.certificate), credential = bytes(base.credential);
+  const selectedSpki = new X509Certificate(original).publicKey.export({ type: 'spki', format: 'der' });
+  const mutableSelection = certificate => ({ asymmetricKeyType: 'ml-dsa-65', export: () => {
+    certificate.fill(0);
+    return Buffer.from(selectedSpki);
+  } });
+  for (const inspect of [inspectIssuerSigned,
+    (value, options) => verifyIssuerSigned(value, { ...options, at: base.stateTime })]) {
+    const certificate = Buffer.from(original);
+    const facts = inspect(credential, { certificate, issuerKey: mutableSelection(certificate) });
+    assert.deepEqual(facts.certificateBytes, original);
+    assert.notStrictEqual(facts.certificateBytes, certificate);
+  }
+  const certificate = Buffer.from(original), observed = [];
+  const validated = verifySigningCredential(credential, {
+    issuerKey: mutableSelection(certificate), certificate,
+    stateTime: base.stateTime, knowledgeTime: base.knowledgeTime,
+    trustAnchorCertificate: bytes(source.trust.rootCertificate),
+    profileID: base.profileID, documentKeyMode: base.documentKeyMode,
+    statusEvidence: base.statusEvidence,
+    authorizeIssuer: context => { observed.push(Buffer.from(context.certificate));
+      context.certificate.fill(0); return { overall: 'VALID' }; },
+    resolveStatus: context => { observed.push(Buffer.from(context.certificate));
+      return { overall: 'VALID', status: 'GOOD', algorithm: 'ML-DSA-65' }; },
+  });
+  assert.equal(validated.overall, 'VALID');
+  assert.deepEqual(validated.certificateBytes, original);
+  assert.equal(observed.length, 2);
+  for (const value of observed) assert.deepEqual(value, original);
 });

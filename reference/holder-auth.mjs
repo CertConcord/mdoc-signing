@@ -59,10 +59,9 @@ export function verifyHolderAuthentication(deviceSigned, credential, {
   requireThat(facts.claims.get(SIGNING_NAMESPACE)?.get('profile_id') === profileID, 'MDOC_HOLDER_PROFILE');
   requireThat(profileID === BASE_PROFILE || (allowLegacyClassical === true && isLegacyClassicalProfile(profileID)),
     'MDOC_HOLDER_PROFILE_UNSUPPORTED', 'UNSUPPORTED');
-  if (profileID === BASE_PROFILE) requireThat(issuerKey?.asymmetricKeyType === 'ml-dsa-65' &&
+  if (profileID === BASE_PROFILE) requireThat(facts.issuerAlgorithm === -49 &&
     facts.holderPublicKey.asymmetricKeyType === 'ml-dsa-65', 'MDOC_HOLDER_PQC_REQUIRED');
-  else requireThat(issuerKey?.asymmetricKeyType === 'ec' &&
-    issuerKey.asymmetricKeyDetails.namedCurve === 'prime256v1' &&
+  else requireThat(facts.issuerAlgorithm === -7 &&
     facts.holderPublicKey.asymmetricKeyType === 'ec' &&
     facts.holderPublicKey.asymmetricKeyDetails.namedCurve === 'prime256v1',
     'MDOC_LEGACY_AUTHENTICATION_REQUIRED');
