@@ -1,6 +1,14 @@
 {
-  "reviewDate": "2026-11-25",
+  "reviewDate": "2026-11-27",
   "sources": [
+    {
+      "id": "rfc8949",
+      "url": "https://www.rfc-editor.org/rfc/rfc8949.txt",
+      "sha256": "f1164a5b31a39350ad46abe29b83575eb933ca6c45366989c118b6b1058a214a",
+      "bytes": 185226,
+      "retrievedAt": "2026-11-27T16:51:49.940132Z",
+      "license": "IETF Trust"
+    },
     {
       "id": "rfc9052",
       "url": "https://www.rfc-editor.org/rfc/rfc9052.txt",
@@ -63,6 +71,7 @@
     }
   ],
   "reviewScope": [
+    "RFC 8949 section 4.2.1 core deterministic encoded-key byte ordering",
     "ISO catalog metadata",
     "public WG10 certificate binding, revocation, DeviceSigned and device authentication sections",
     "RFC 9360 x5t",

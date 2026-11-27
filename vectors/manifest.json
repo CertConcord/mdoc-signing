@@ -15,6 +15,7 @@
     "vectors/pqc-ca-key-role.json": "863964b527d018008295679576cd57d1c6d37106868d60bb529c3032842c4d83",
     "vectors/pqc-holder-ca-key-role.json": "f211cee3e74f684ec6931f4d90bd015ce1afe3e4672b47c4413037607c75f84f",
     "vectors/pqc-document-headers.json": "e20bfd6d992ff31f12a65976eb31ed654c857aa6777299309e373546a7ef9a41",
+    "vectors/pqc-document-map-order.json": "5601f5878124b28b16077ce83dfa7a83a6a53127550cc2e4e6eaa28138c8f538",
     "vectors/pqc-issuer-headers.json": "8f045a43efd8e99988d2ff6efae1f30c9175a8706ba513bf8f5ce1fcba9bd338",
     "vectors/pqc-status-binding.json": "6fa8c1ca2c715d6509283a1e8271dec503c589953811edd9270b71fe5858c1ed",
     "vectors/issuer-key-binding.json": "4c497667fe3e9d2461df4acba6b0215870ad7054f25f9b3c7af96f9daf78b096"
