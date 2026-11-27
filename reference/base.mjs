@@ -298,5 +298,14 @@ export function verifySignedDocument(document, signature, credential, options) {
 }
 export function evaluateSignedDocument(...arguments_) {
   try { return verifySignedDocument(...arguments_); }
-  catch (error) { return { overall: error.overall ?? 'INVALID', reason: error.code ?? 'MDOC_MALFORMED' }; }
+  catch (error) {
+    try {
+      if (error instanceof MdocValidationError) {
+        const { overall, code } = error;
+        if (['INVALID', 'INDETERMINATE', 'UNSUPPORTED'].includes(overall) &&
+          typeof code === 'string' && code.length > 0) return { overall, reason: code };
+      }
+    } catch { /* An exception's own properties cannot set the evaluation result. */ }
+    return { overall: 'INVALID', reason: 'MDOC_MALFORMED' };
+  }
 }
