@@ -1,5 +1,7 @@
 # PQC standards boundary for mdoc signing — 2026-11-25
 
+Updated 2026-11-27 for the published RFC 10073 composite PKIX boundary; earlier source checks retain their stated dates.
+
 This note separates published cryptographic **encodings** from the mdoc application and trust rules still selected by CertConcord. It supplements, rather than replaces, [the earlier mdoc source check](standards-research-2026-11-24.md). No full-text assertion is made about the licensed published ISO/IEC 18013-5:2021 edition.
 
 ## Source status
@@ -20,6 +22,12 @@ This note separates published cryptographic **encodings** from the mdoc applicat
 | X.509 | `id-ml-dsa-44/65/87` algorithm identifiers have absent parameters; ML-DSA public key uses raw encoded key bytes in SPKI `subjectPublicKey` BIT STRING; pure ML-DSA signs DER `TBSCertificate`/CRL with empty context. | [RFC 9881 §§2–4](https://www.rfc-editor.org/rfc/rfc9881.html#section-2) |
 
 RFC 9881 §5 permits ML-DSA subject keys for signature usages such as `digitalSignature`, `nonRepudiation`, `keyCertSign`, and `cRLSign`, subject to the certificate's actual key usage; it excludes encryption and key agreement usages. RFC 9881 §8.3 excludes HashML-DSA from PKIX certificates/CRLs/OCSP. A certificate's SPKI algorithm and its **issuer signature algorithm** are separate fields; carrying an ML-DSA public key does not itself make the certification path post-quantum. [RFC 9794 §6](https://www.rfc-editor.org/rfc/rfc9794.html#section-6), an informational terminology RFC, explicitly distinguishes a post-quantum certificate chain from mixed chains and says mixed-chain security needs case-by-case analysis.
+
+## Composite PKIX is a separate profile choice
+
+[RFC 10073](https://www.rfc-editor.org/rfc/rfc10073.html#section-1) is a published Standards Track specification for composite ML-DSA plus traditional signatures in X.509/PKIX. Its [registered OIDs](https://www.rfc-editor.org/rfc/rfc10073.html#section-8.2) are distinct from the pure `id-ml-dsa-*` identifiers in RFC 9881. Its [verification procedure](https://www.rfc-editor.org/rfc/rfc10073.html#section-3.3) checks both component signatures over the specified labelled and prehashed input; accepting an extracted ML-DSA component as a pure certificate signature would change what was verified. The source original is pinned in `sources.json` as 661,708 bytes with SHA-256 `f3c1a1e2499eec60c54a6334281b3341307214c41938230a65dbb711dafb43c0`.
+
+The current v3 issuer path selects pure ML-DSA-65 certificate keys and signatures. RFC 10073 registers PKIX algorithms; it does not select a COSE `issuerAuth` or DeviceAuth suite, accept a composite path under this profile, or grant document-signing CA authority. A future composite profile would need its own named suite, complete composite path verification, explicit trust-anchor and issuer-role policy, and cross-profile rejection vectors. This is the component's profile boundary inferred from [RFC 10073 §§3.3, 10.3–10.4](https://www.rfc-editor.org/rfc/rfc10073.html#section-10.3) and the [IANA COSE Algorithms registry](https://www.iana.org/assignments/cose/cose.xhtml), not a claim about the unreviewed published ISO text.
 
 ## Mdoc and document-signature boundary
 

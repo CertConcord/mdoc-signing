@@ -43,6 +43,14 @@
       "bytes": 229857
     },
     {
+      "id": "rfc10073",
+      "url": "https://www.rfc-editor.org/rfc/rfc10073.txt",
+      "sha256": "f3c1a1e2499eec60c54a6334281b3341307214c41938230a65dbb711dafb43c0",
+      "bytes": 661708,
+      "retrievedAt": "2026-11-27",
+      "license": "IETF Trust"
+    },
+    {
       "id": "rfc9964",
       "url": "https://www.rfc-editor.org/rfc/rfc9964.txt",
       "sha256": "8c42035b948301b197d431de8b3f40019bdaa3bb40150dc523306923948f34cf",
@@ -87,6 +95,7 @@
     "status-list-21 selected JWT binding",
     "RFC 9964 ML-DSA COSE AKP and JWS algorithms",
     "RFC 9881 ML-DSA X.509 signatures and public keys",
+    "RFC 10073 composite ML-DSA PKIX identifiers and separation from pure ML-DSA",
     "NIST FIPS 204 pure ML-DSA",
     "IANA COSE Algorithms registry snapshot retrieved 2026-11-27",
     "public WG10 algorithm-suite boundary for issuerAuth and DeviceAuth"
