@@ -167,6 +167,9 @@ export function coseKey(jwk) {
   const x = unb64u(jwk.x),
     y = unb64u(jwk.y);
   requireThat(x.length === 32 && y.length === 32, 'COSE_POINT');
+  // Validate the captured coordinates, not a second read of the caller's JWK.
+  try { createPublicKey({ key: { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) }, format: 'jwk' }); }
+  catch { requireThat(false, 'COSE_POINT'); }
   return new Map([
     [1, 2],
     [-1, 1],
@@ -189,7 +192,5 @@ export function coseJWK(key) {
   requireThat(types.isUint8Array(x) && types.isUint8Array(y), 'COSE_KEY');
   const jwk = { kty: 'EC', crv: 'P-256', x: b64u(x), y: b64u(y) };
   coseKey(jwk);
-  try { createPublicKey({ key: jwk, format: 'jwk' }); }
-  catch { requireThat(false, 'COSE_POINT'); }
   return jwk;
 }

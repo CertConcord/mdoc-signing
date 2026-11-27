@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { verify, X509Certificate } from 'node:crypto';
 import { evaluateSignedDocument, inspectIssuerSigned, verifyIssuerSigned } from './base.mjs';
-import { coseJWK, decode, encode } from './cbor.mjs';
+import { coseJWK, coseKey, decode, encode } from './cbor.mjs';
 
 const vectors = JSON.parse(readFileSync(new URL('../vectors/ec2-invalid-point.json', import.meta.url)));
 const certificate = Buffer.from(vectors.certificate, 'hex');
@@ -46,4 +46,14 @@ for (const vector of vectors.cases) test('signed EC2 point: ' + vector.id, () =>
 test('direct EC2 conversion classifies a native-length but invalid point', () => {
   const invalidPoint = new Map([[1, 2], [-1, 1], [-2, Buffer.alloc(32)], [-3, Buffer.alloc(32)]]);
   assert.throws(() => coseJWK(invalidPoint), { overall: 'INVALID', code: 'COSE_POINT' });
+});
+
+test('direct EC2 encoding checks the same mathematical point as conversion', () => {
+  const validJWK = holderKey.export({ format: 'jwk' });
+  assert.deepEqual(coseJWK(coseKey(validJWK)), {
+    kty: validJWK.kty, crv: validJWK.crv, x: validJWK.x, y: validJWK.y,
+  });
+  const zero = Buffer.alloc(32).toString('base64url');
+  assert.throws(() => coseKey({ kty: 'EC', crv: 'P-256', x: zero, y: zero }),
+    { overall: 'INVALID', code: 'COSE_POINT' });
 });
